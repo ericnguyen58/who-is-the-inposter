@@ -21,8 +21,9 @@ socket.on('connect', () => {
 
 socket.on('state', (s) => {
   state = s;
-  if (s.word !== lastWord) {
-    lastWord = s.word;
+  const word = s.mode === 'teams' ? s.team.word : s.word;
+  if (word !== lastWord) {
+    lastWord = word;
     hideWord = false;
   }
   render();
@@ -42,8 +43,15 @@ function render() {
   if (!playerId || !state) return renderJoin();
   const s = state;
   let body = '';
+  const draft = app.querySelector('#word');
+  const draftValue = draft ? draft.value : '';
+  const draftFocused = draft && document.activeElement === draft;
 
-  if (s.phase === 'lobby') {
+  if (s.mode === 'teams') {
+    body = s.team.phase === 'lobby'
+      ? `<p class="big">You're in!</p><p>Mode: Act &amp; Draw. Waiting for the host to start.</p>${namesList(s.players)}`
+      : teamBody(s.team);
+  } else if (s.phase === 'lobby') {
     body = `<p class="big">You're in!</p><p>Waiting for the host to start.</p>${namesList(s.players)}`;
   } else if (s.phase === 'done') {
     body = `<p class="big">Rotation complete</p><p>Everyone has been the imposter once.</p>${scoreList(s.players)}`;
@@ -58,13 +66,80 @@ function render() {
       ${s.phase === 'clues' ? '<p>Say one thing about your word. The host starts the vote.</p>' : voteHtml(s)}`;
   }
 
-  app.innerHTML = `<header class="me"><span>${esc(s.me.name)}</span><span>${s.me.score} pts</span></header>${body}`;
+  const pts = s.mode === 'teams' ? (s.team.myTeam ? s.team.myTeam.score : 0) : s.me.score;
+  app.innerHTML = `<header class="me"><span>${esc(s.me.name)}</span><span>${pts} pts</span></header>${body}`;
 
   const card = app.querySelector('.word');
   if (card) card.onclick = () => { hideWord = !hideWord; render(); };
   app.querySelectorAll('[data-vote]').forEach((b) => {
     b.onclick = () => socket.emit('vote', b.dataset.vote, (res) => { if (!res.ok) alert(res.error); });
   });
+
+  // Act & Draw controls
+  const input = app.querySelector('#word');
+  if (input) {
+    if (draftValue) input.value = draftValue;
+    if (draftFocused) input.focus();
+  }
+  const form = app.querySelector('#wordForm');
+  if (form) {
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const value = input.value;
+      input.value = '';
+      send('team:word', value);
+    };
+  }
+  const go = app.querySelector('[data-go]');
+  if (go) go.onclick = () => send('team:go');
+  app.querySelectorAll('[data-judge]').forEach((b) => {
+    b.onclick = () => send('team:judge', b.dataset.judge === '1');
+  });
+  startCountdown(s.mode === 'teams' && s.team.turn ? s.team.turn.timerMs : null);
+}
+
+function send(event, arg = null) {
+  socket.emit(event, arg, (res) => { if (!res.ok) alert(res.error); });
+}
+
+// ---------- Act & Draw ----------
+
+function teamBody(t) {
+  const scores = `<ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>`;
+  const myTeam = t.myTeam ? `<p class="muted">Your team: ${esc(t.myTeam.name)}</p>` : '';
+  if (t.phase === 'done') {
+    return `<p class="big">Game over</p>${teamResultHtml(t.result)}
+      <p class="big">Winner: <b>${t.winners.map(esc).join(', ') || '-'}</b></p>${scores}`;
+  }
+  if (t.phase === 'turnResult') {
+    return `${teamResultHtml(t.result)}${scores}<p class="muted">Waiting for the next turn&hellip;</p>`;
+  }
+  const turn = t.turn;
+  const timer = t.phase === 'acting' ? '<p class="timer"></p>' : '';
+  const progress = `Other teams are writing your word&hellip; ${turn.wordsIn} / ${turn.wordsNeeded}`;
+  const rules = `<p>Act or draw it. Don't say it, don't point at it.</p>`;
+
+  switch (t.role) {
+    case 'actor':
+      if (t.phase === 'writing') return `${myTeam}<p class="big">You act / draw this turn!</p><p>${progress}</p>`;
+      if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${rules}<button data-go>Start timer</button>`;
+      return `${timer}${wordCard(t.word)}${rules}`;
+    case 'guesser':
+      if (t.phase === 'writing') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} will act or draw. ${progress}</p>`;
+      if (t.phase === 'ready') return `${myTeam}<p class="big">Get ready to guess!</p><p>${esc(turn.actorName)} is about to start.</p>`;
+      return `${timer}<p class="big">Guess out loud!</p>`;
+    case 'writer':
+      return `${myTeam}<p class="big">Write a word for ${esc(turn.playingTeam)}</p>
+        <form id="wordForm"><input id="word" maxlength="30" autocomplete="off" placeholder="A word or short phrase" required><button type="submit">Submit</button></form>
+        <p class="muted">${t.myTeamWord ? `Your team's word: <b>${esc(t.myTeamWord)}</b> (you can change it)` : 'One word per team. Any teammate can submit.'}</p>`;
+    case 'judge':
+      if (t.phase === 'ready') return `${myTeam}<p class="big">Your team's word was picked!</p>${wordCard(t.word)}<p>Waiting for ${esc(turn.actorName)} to start.</p>`;
+      return `${timer}${wordCard(t.word)}<p class="big">Did ${esc(turn.playingTeam)} guess it?</p>
+        <div class="judge"><button class="ok" data-judge="1">Correct</button><button class="fail" data-judge="0">Fail</button></div>
+        <p class="muted">Fail = they broke the rules or gave up. Time running out also counts as a fail.</p>`;
+    default:
+      return `${myTeam}${timer}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} acts / draws.</p>`;
+  }
 }
 
 function wordCard(word) {

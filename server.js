@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 const { Game } = require('./game');
+const { TeamGame } = require('./teams');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -15,7 +16,10 @@ const CODE = randomCode();
 const IP = process.env.HOST_IP || lanIp() || 'localhost';
 const JOIN_URL = `http://${IP}:${PORT}/?code=${CODE}`;
 
-const game = new Game();
+const game = new Game(); // imposter mode; also holds the player list
+const teamGame = new TeamGame({ players: game.players }); // Act & Draw mode
+let mode = 'imposter'; // 'imposter' | 'teams'
+let turnTimer = null;
 const socketCount = new Map(); // playerId -> number of open sockets
 let qr = '';
 
@@ -64,6 +68,7 @@ io.on('connection', (socket) => {
         if (String(code || '').trim().toUpperCase() !== CODE) throw new Error('Wrong room code');
         id = crypto.randomUUID();
         game.addPlayer(id, name);
+        teamGame.addPlayer(id);
       }
       if (socket.data.playerId !== id) {
         if (socket.data.playerId) leave(socket);
@@ -88,12 +93,52 @@ io.on('connection', (socket) => {
     }
   });
 
+  const playerActions = {
+    'team:word': (word) => teamGame.submitWord(socket.data.playerId, word),
+    'team:go': () => armTimer(teamGame.startTimer(socket.data.playerId)),
+    'team:judge': (correct) => teamGame.judge(socket.data.playerId, !!correct),
+  };
+  for (const [event, fn] of Object.entries(playerActions)) {
+    socket.on(event, (arg, ack) => {
+      if (typeof arg === 'function') [arg, ack] = [undefined, arg];
+      try {
+        if (!socket.data.playerId) throw new Error('Join first');
+        fn(arg);
+        reply(ack, { ok: true });
+        broadcast();
+      } catch (e) {
+        reply(ack, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  const imposterOnly = (fn) => (arg) => {
+    if (mode !== 'imposter') throw new Error('Switch to Imposter mode first');
+    return fn(arg);
+  };
+  const teamsOnly = (fn) => (arg) => {
+    if (mode !== 'teams') throw new Error('Switch to Act & Draw mode first');
+    return fn(arg);
+  };
+
   const hostActions = {
-    'host:start': () => game.start(),
-    'host:startVote': () => game.startVote(),
-    'host:closeVote': () => game.closeVote(),
-    'host:next': () => game.next(),
+    'host:mode': (m) => {
+      if (m !== 'imposter' && m !== 'teams') throw new Error('Unknown mode');
+      if (!canSwitchMode()) throw new Error('Finish the current game first');
+      mode = m;
+    },
+    'host:start': imposterOnly(() => game.start()),
+    'host:startVote': imposterOnly(() => game.startVote()),
+    'host:closeVote': imposterOnly(() => game.closeVote()),
+    'host:next': imposterOnly(() => game.next()),
+    'team:start': teamsOnly(() => teamGame.start()),
+    'team:settings': teamsOnly((s) => teamGame.setSettings(s || {})),
+    'team:pick': teamsOnly(() => teamGame.pickNow()),
+    'team:hostGo': teamsOnly(() => armTimer(teamGame.startTimer(null))),
+    'team:next': teamsOnly(() => teamGame.next()),
+    'team:lobby': teamsOnly(() => teamGame.toLobby()),
     'host:kick': (id) => {
+      teamGame.removePlayer(id);
       game.removePlayer(id);
       io.to('p:' + id).emit('kicked');
       io.in('p:' + id).socketsLeave('p:' + id);
@@ -128,14 +173,39 @@ function leave(socket) {
   else socketCount.delete(id);
 }
 
+function canSwitchMode() {
+  return ['lobby', 'done'].includes(game.phase) && ['lobby', 'done'].includes(teamGame.phase);
+}
+
+// Ends the Act & Draw turn when its time runs out.
+function armTimer(ms) {
+  clearTimeout(turnTimer);
+  const turnNo = teamGame.turnNo;
+  turnTimer = setTimeout(() => {
+    teamGame.timeUp(turnNo);
+    broadcast();
+  }, ms);
+}
+
 function reply(ack, msg) {
   if (typeof ack === 'function') ack(msg);
 }
 
 function broadcast() {
   const connected = new Set(socketCount.keys());
-  io.to('host').emit('board', { ...game.boardView(connected), code: CODE, joinUrl: JOIN_URL, qr });
-  for (const id of game.players.keys()) io.to('p:' + id).emit('state', game.playerView(id));
+  const now = Date.now();
+  io.to('host').emit('board', {
+    ...game.boardView(connected),
+    code: CODE,
+    joinUrl: JOIN_URL,
+    qr,
+    mode,
+    canSwitch: canSwitchMode(),
+    team: teamGame.boardView(now),
+  });
+  for (const id of game.players.keys()) {
+    io.to('p:' + id).emit('state', { ...game.playerView(id), mode, team: teamGame.playerView(id, now) });
+  }
 }
 
 // ---------- helpers ----------
