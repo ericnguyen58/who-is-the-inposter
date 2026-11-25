@@ -34,3 +34,32 @@ function trackConnection(socket) {
   socket.on('connect', () => { el.hidden = true; });
   socket.on('disconnect', () => { el.hidden = false; });
 }
+
+function teamResultHtml(r) {
+  if (!r) return '';
+  const head = {
+    guessed: `<div class="banner good">Guessed! +1 ${esc(r.pointTeam)}</div>`,
+    failed: `<div class="banner bad">Failed. +1 ${esc(r.pointTeam)}</div>`,
+    timeout: `<div class="banner bad">Time's up! +1 ${esc(r.pointTeam)}</div>`,
+    cancelled: `<div class="banner muted">Turn cancelled, no points</div>`,
+  }[r.outcome];
+  const word = r.word ? `<p class="big">The word was <b>${esc(r.word)}</b>${r.writerTeam ? ` (from ${esc(r.writerTeam)})` : ''}</p>` : '';
+  return head + word;
+}
+
+// Counts down every element with class "timer" to the given remaining time.
+let countdownEnd = null;
+let countdownLoop = null;
+function startCountdown(ms) {
+  countdownEnd = ms == null ? null : performance.now() + ms;
+  const tick = () => {
+    if (countdownEnd == null) return;
+    const left = Math.max(0, Math.ceil((countdownEnd - performance.now()) / 1000));
+    document.querySelectorAll('.timer').forEach((el) => {
+      el.textContent = `${left}s`;
+      el.classList.toggle('low', left <= 10);
+    });
+  };
+  tick();
+  if (!countdownLoop) countdownLoop = setInterval(tick, 250);
+}

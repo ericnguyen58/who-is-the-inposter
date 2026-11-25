@@ -23,23 +23,102 @@ function act(event, arg = null) {
 
 function render() {
   const b = board;
+  const teams = b.mode === 'teams';
   app.innerHTML = `
     <section class="join">
       <img src="${b.qr}" alt="QR code to join">
       <p>Scan or open<br><b>${esc(b.joinUrl.replace(/\?.*/, ''))}</b></p>
       <p class="code">${esc(b.code)}</p>
     </section>
-    <section class="stage">${stage(b)}</section>
-    <section class="scoreboard">
+    <section class="stage">${b.canSwitch ? modeSwitch(b) : ''}${teams ? teamStage(b.team, b.players.length) : stage(b)}</section>
+    <section class="scoreboard">${teams ? teamScoreboard(b) : `
       <h2>Scores</h2>
       <ol class="scores">${b.players.map(row).join('')}</ol>
-      <p class="muted">&#10003; = has been imposter this rotation</p>
+      <p class="muted">&#10003; = has been imposter this rotation</p>`}
     </section>`;
 
   app.querySelectorAll('[data-act]').forEach((el) => { el.onclick = () => act(el.dataset.act); });
+  app.querySelectorAll('[data-mode]').forEach((el) => { el.onclick = () => act('host:mode', el.dataset.mode); });
+  app.querySelectorAll('[data-set]').forEach((el) => {
+    el.onclick = () => {
+      const key = el.dataset.set;
+      act('team:settings', { [key]: b.team.settings[key] + Number(el.dataset.delta) });
+    };
+  });
   app.querySelectorAll('[data-kick]').forEach((el) => {
     el.onclick = () => { if (confirm(`Remove ${el.dataset.name}?`)) act('host:kick', el.dataset.kick); };
   });
+  startCountdown(teams ? b.team.turn && b.team.turn.timerMs : null);
+}
+
+function modeSwitch(b) {
+  const btn = (m, label) => `<button class="${b.mode === m ? '' : 'secondary'}" data-mode="${m}">${label}</button>`;
+  return `<div class="modes">${btn('imposter', 'Imposter')}${btn('teams', 'Act &amp; Draw')}</div>`;
+}
+
+// ---------- Act & Draw ----------
+
+function teamStage(t, playerCount) {
+  const turnLine = t.turn
+    ? `<p class="round">Playing: ${esc(t.turn.playingTeam)} &middot; ${esc(t.turn.actorName)} acts / draws</p>`
+    : '';
+  switch (t.phase) {
+    case 'lobby': {
+      const enough = playerCount >= t.minPlayers;
+      return `<h1>Act &amp; Draw</h1>
+        <p class="big">${playerCount} player${playerCount === 1 ? '' : 's'} joined</p>
+        ${settingsHtml(t.settings)}
+        <button data-act="team:start" ${enough ? '' : 'disabled'}>Make random teams &amp; start</button>
+        ${enough ? '' : `<p class="muted">Need at least ${t.minPlayers} players.</p>`}`;
+    }
+    case 'writing':
+      return `${turnLine}
+        <p class="big">Other teams are writing a word&hellip; ${t.turn.wordsIn} / ${t.turn.wordsNeeded}</p>
+        <button class="secondary" data-act="team:pick" ${t.turn.wordsIn ? '' : 'disabled'}>Pick from the words in now</button>
+        ${settingsHtml(t.settings)}`;
+    case 'ready':
+      return `${turnLine}
+        <p class="big">Word picked from <b>${esc(t.turn.writerTeam)}</b>.</p>
+        <p>${esc(t.turn.actorName)} starts the timer on their phone.</p>
+        <button class="secondary" data-act="team:hostGo">Start timer</button>`;
+    case 'acting':
+      return `${turnLine}
+        <p class="timer huge"></p>
+        <p class="big">Guess out loud! <b>${esc(t.turn.writerTeam)}</b> confirms on their phone.</p>`;
+    case 'turnResult':
+      return `${teamResultHtml(t.result)}
+        <button data-act="team:next">Next turn</button>
+        ${settingsHtml(t.settings)}`;
+    case 'done':
+      return `<h1>Game over</h1>
+        ${t.result ? teamResultHtml(t.result) : ''}
+        <p class="big">Winner: <b>${t.winners.map(esc).join(', ') || '-'}</b></p>
+        <button data-act="team:lobby">Back to lobby</button>`;
+    default:
+      return '';
+  }
+}
+
+function settingsHtml(s) {
+  const ctl = (key, delta, label) =>
+    `<button class="step" data-set="${key}" data-delta="${-delta}">&minus;</button><b>${label}</b><button class="step" data-set="${key}" data-delta="${delta}">+</button>`;
+  return `<div class="settings">
+    <div><span>Timer</span>${ctl('seconds', 10, `${s.seconds}s`)}</div>
+    <div><span>Win at</span>${ctl('target', 1, `${s.target} pts`)}</div>
+  </div>`;
+}
+
+function teamScoreboard(b) {
+  const t = b.team;
+  const teams = t.teams.length
+    ? `<h2>Teams</h2><ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
+       <p class="muted">First to ${t.settings.target} wins</p>`
+    : '';
+  const players = b.players.map((p) => `<li class="${p.connected ? '' : 'away'}">
+      <span>${esc(p.name)}</span>
+      <button class="kick" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" title="Remove">&times;</button>
+    </li>`).join('');
+  return `${teams}<h2>Players</h2><ol class="scores">${players}</ol>`;
 }
 
 function stage(b) {

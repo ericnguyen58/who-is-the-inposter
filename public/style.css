@@ -129,3 +129,24 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
   text-align: center;
   z-index: 10;
 }
+
+/* ---------- Act & Draw ---------- */
+
+.modes { display: flex; gap: 8px; margin-bottom: 16px; }
+.modes button { margin: 0; }
+.board .stage .modes button { max-width: none; }
+
+.settings { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
+.settings div { display: flex; align-items: center; gap: 8px; background: var(--panel); border-radius: 12px; padding: 6px 10px; }
+.settings span { color: var(--muted); font-size: 0.9rem; margin-right: 4px; }
+.settings b { min-width: 56px; text-align: center; }
+.board .stage .settings button.step, button.step { width: 40px; margin: 0; padding: 6px 0; background: var(--bg); }
+
+.timer { font-size: 2.4rem; font-weight: 800; text-align: center; margin: 8px 0; }
+.timer.huge { font-size: 5rem; text-align: left; }
+.timer.low { color: var(--bad); }
+
+.judge { display: flex; gap: 8px; }
+.judge button { margin: 8px 0; }
+.judge .fail { background: var(--bad); }
+.judge .ok { background: var(--good); color: #0b2a17; }

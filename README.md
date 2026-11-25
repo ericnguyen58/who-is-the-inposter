@@ -28,9 +28,24 @@ npm start
 - Imposter win = **points equal to the round number** (1 to 5).
 - Rotation: the order is shuffled so everyone is the imposter exactly once. Late joiners are added to the rotation. After the rotation, the host can start a new one.
 
+## Act & Draw mode
+
+Pick **Act & Draw** on the scoreboard before starting (switching is possible whenever no game is running). Needs at least 4 players.
+
+- The app makes random teams of 2. With an odd number of players, one team has 3.
+- Each turn one team plays. Every other team types a word on their phones, and the app picks one at random.
+- The actor sees the word and acts it out or draws it on paper, without saying it or pointing at it. Their teammate guesses out loud. Teammates take turns acting.
+- The team whose word was picked confirms on their phone:
+  - **Correct**: the playing team gets **+1**.
+  - **Fail**, or the timer runs out: the team that wrote the word gets **+1**.
+- The first team to reach the target score wins.
+- The host sets the timer length and the target score with the − / + buttons. Both can be changed between turns.
+- Late joiners go to the smallest team.
+
 ## Files
 
-- `game.js` – rules, rotation, voting, scoring
+- `game.js` – Imposter rules, rotation, voting, scoring
+- `teams.js` – Act & Draw rules, teams, timer, scoring
 - `server.js` – web server, sockets, QR code
 - `words.js` – word pairs (edit to add your own)
 - `public/` – phone and scoreboard pages
