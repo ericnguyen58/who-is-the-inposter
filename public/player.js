@@ -9,6 +9,7 @@ let state = null;
 let hideWord = false;
 let lastWord = null;
 let joinError = '';
+let showHelp = false;
 
 trackConnection(socket);
 
@@ -67,8 +68,11 @@ function render() {
   }
 
   const pts = s.mode === 'teams' ? (s.team.myTeam ? s.team.myTeam.score : 0) : s.me.score;
-  app.innerHTML = `<header class="me"><span>${esc(s.me.name)}</span><span>${pts} pts</span></header>${body}`;
+  app.innerHTML = `<header class="me"><span>${esc(s.me.name)}</span>
+    <span>${pts} pts <button class="help-btn" data-help>${showHelp ? '&times;' : '?'}</button></span></header>
+    ${showHelp ? helpHtml(s.mode, false) : ''}${body}`;
 
+  app.querySelector('[data-help]').onclick = () => { showHelp = !showHelp; render(); };
   const card = app.querySelector('.word');
   if (card) card.onclick = () => { hideWord = !hideWord; render(); };
   app.querySelectorAll('[data-vote]').forEach((b) => {

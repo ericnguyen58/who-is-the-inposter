@@ -63,3 +63,43 @@ function startCountdown(ms) {
   tick();
   if (!countdownLoop) countdownLoop = setInterval(tick, 250);
 }
+
+// "How to play" panel. forHost = true on the laptop scoreboard.
+function helpHtml(mode, forHost) {
+  const list = (items) => `<ol>${items.map((i) => `<li>${i}</li>`).join('')}</ol>`;
+  if (mode === 'teams') {
+    const steps = forHost
+      ? [
+        'Set <b>Timer</b> and <b>Win at</b>, then tap <b>Make random teams &amp; start</b> (4+ players).',
+        'Other teams type a word on their phones. To stop waiting, tap <b>Pick from the words in now</b>.',
+        'The actor taps <b>Start timer</b> on their phone (or tap it here).',
+        'The actor acts or draws on paper. The teammate guesses out loud.',
+        'The team that wrote the word taps <b>Correct</b> or <b>Fail</b>. Time running out = fail.',
+        'Tap <b>Next turn</b>. First team to the win score wins.',
+      ]
+      : [
+        'When another team plays, your team types one word for them and taps <b>Submit</b>.',
+        'When your team plays, the actor sees the word and taps <b>Start timer</b>.',
+        'The actor acts or draws it on paper. No saying it, no pointing at it. The teammate guesses out loud.',
+        'If your team’s word is picked, you judge: tap <b>Correct</b> or <b>Fail</b>.',
+      ];
+    return `<div class="help"><h2>Act &amp; Draw</h2>${list(steps)}
+      <p><b>Points:</b> guessed = +1 to the playing team. Fail or time up = +1 to the team that wrote the word.</p></div>`;
+  }
+  const steps = forHost
+    ? [
+      'Tap <b>Start game</b> (3+ players). Each phone shows a word.',
+      'Everyone says one clue about their word out loud.',
+      'Tap <b>Start vote</b>. Phones vote for a player or Skip. Tap <b>Close vote now</b> to end it early.',
+      'Tie or Skip = nobody out, next round (max 5 rounds).',
+      'Tap <b>Next game</b>. Everyone is the imposter once per rotation.',
+    ]
+    : [
+      'Your word is on the screen. Tap it to hide it.',
+      'One player has a different word: the imposter. Nobody is told who, maybe not even you.',
+      'Each round, say one clue about your word out loud. Don’t say the word.',
+      'Vote for who you think has the different word, or Skip.',
+    ];
+  return `<div class="help"><h2>Imposter</h2>${list(steps)}
+    <p><b>Points:</b> imposter caught = +1 to everyone else. Wrong player voted out, or 5 rounds survived = imposter wins points equal to the round number.</p></div>`;
+}
