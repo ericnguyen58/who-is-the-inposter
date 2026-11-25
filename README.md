@@ -42,6 +42,69 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 - The host sets the timer length and the target score with the − / + buttons. Both can be changed between turns.
 - Late joiners go to the smallest team.
 
+## How to operate
+
+### First-time setup (host laptop)
+
+1. Install Node.js (LTS) from https://nodejs.org.
+2. Download the game and install it:
+   ```
+   git clone https://github.com/ericnguyen58/who-is-the-inposter
+   cd who-is-the-inposter
+   npm install
+   ```
+
+### Start a session
+
+1. Connect the laptop to the same Wi-Fi as the phones.
+2. In the game folder, run `npm start`. Keep this terminal open while you play.
+3. On the laptop, open `http://localhost:3000/host`. This is the scoreboard. Put it where everyone can see it, such as on a TV.
+4. Each player scans the QR code with their phone camera (or opens the link and types the 4-letter code), types a name and taps **Join**.
+5. Pick a mode with the **Imposter** / **Act & Draw** buttons at the top of the scoreboard.
+
+### Run Imposter mode (3+ players)
+
+1. Tap **Start game**. Each phone shows a word.
+2. Everyone says one clue about their word out loud.
+3. Tap **Start vote**. Everyone votes on their phone for a player or **Skip**.
+4. The vote closes when everyone has voted. To close it early (for example if someone's phone is off), tap **Close vote now**.
+5. If nobody is out, the next round starts: go back to step 2.
+6. When the game ends, the scoreboard shows the imposter, both words and the scores. Tap **Next game**.
+7. After everyone has been the imposter once, tap **Show final scores**. Tap **New rotation** to play again.
+
+### Run Act & Draw mode (4+ players)
+
+1. Set **Timer** and **Win at** with the − / + buttons.
+2. Tap **Make random teams & start**. The scoreboard lists the teams.
+3. The phones of the other teams ask for a word. Each team types one word and taps **Submit**. To stop waiting for slow teams, tap **Pick from the words in now**.
+4. The actor's phone shows the word. When they're ready, they tap **Start timer** (the host can also tap **Start timer** on the laptop).
+5. The actor acts or draws on paper and the teammate guesses out loud. The team that wrote the word taps **Correct** or **Fail** on their phone. If time runs out, it counts as a fail.
+6. Tap **Next turn**. The timer and win score can be changed here.
+7. When a team reaches the win score, the game ends. Tap **Back to lobby** to play again or switch modes.
+
+### During play
+
+- **Player's phone locks or the page closes:** they reopen the same link. Their name, word and score come back.
+- **Remove a player:** tap **×** next to their name on the scoreboard.
+- **New player joins mid-game:** in Imposter mode they play from the next game. In Act & Draw they're added to the smallest team.
+- **Switch modes:** only possible when no game is running (lobby, or after a game ends).
+- **Help:** tap **How to play** on the scoreboard, or **?** on a phone, for the rules of the current mode.
+
+### Stop
+
+Press `Ctrl + C` in the terminal. Scores are not saved: restarting gives a new room code and empty scores.
+
+### Troubleshooting
+
+- **Phones can't open the page:**
+  - Check that the phones are on the same Wi-Fi as the laptop, not mobile data.
+  - Allow Node.js through the laptop firewall. On Windows, click **Allow** when asked.
+- **The link under the QR code shows the wrong IP:** find the laptop's Wi-Fi IP and restart:
+  - Mac / Linux: `HOST_IP=192.168.x.x npm start`
+  - Windows (PowerShell): `$env:HOST_IP="192.168.x.x"; npm start`
+- **Port 3000 is already in use:** `PORT=4000 npm start` (Windows: `$env:PORT="4000"; npm start`), then open `http://localhost:4000/host`.
+- **The scoreboard says to open it on the host laptop:** host controls only work at `http://localhost:3000/host` on the laptop running the game.
+
 ## Files
 
 - `game.js` – Imposter rules, rotation, voting, scoring

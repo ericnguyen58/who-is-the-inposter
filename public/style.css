@@ -150,3 +150,13 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
 .judge button { margin: 8px 0; }
 .judge .fail { background: var(--bad); }
 .judge .ok { background: var(--good); color: #0b2a17; }
+
+/* ---------- How to play ---------- */
+
+.help { text-align: left; background: var(--bg); border-radius: 12px; padding: 12px 14px; margin: 8px 0 16px; font-size: 0.9rem; }
+.phone .help { background: var(--panel); }
+.help h2 { margin: 0 0 6px; color: var(--text); }
+.help ol { list-style: decimal; padding-left: 20px; margin: 6px 0; }
+.help li { margin: 4px 0; }
+.me { align-items: center; }
+.help-btn { display: inline-block; width: 28px; height: 28px; margin: 0 0 0 8px; padding: 0; border-radius: 50%; background: var(--panel); color: var(--text); font-size: 0.9rem; }

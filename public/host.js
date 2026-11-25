@@ -3,6 +3,7 @@
 const socket = io();
 const app = document.getElementById('app');
 let board = null;
+let showHelp = false;
 
 trackConnection(socket);
 
@@ -29,6 +30,8 @@ function render() {
       <img src="${b.qr}" alt="QR code to join">
       <p>Scan or open<br><b>${esc(b.joinUrl.replace(/\?.*/, ''))}</b></p>
       <p class="code">${esc(b.code)}</p>
+      <button class="secondary" data-help>${showHelp ? 'Hide help' : 'How to play'}</button>
+      ${showHelp ? helpHtml(b.mode, true) : ''}
     </section>
     <section class="stage">${b.canSwitch ? modeSwitch(b) : ''}${teams ? teamStage(b.team, b.players.length) : stage(b)}</section>
     <section class="scoreboard">${teams ? teamScoreboard(b) : `
@@ -38,6 +41,7 @@ function render() {
     </section>`;
 
   app.querySelectorAll('[data-act]').forEach((el) => { el.onclick = () => act(el.dataset.act); });
+  app.querySelector('[data-help]').onclick = () => { showHelp = !showHelp; render(); };
   app.querySelectorAll('[data-mode]').forEach((el) => { el.onclick = () => act('host:mode', el.dataset.mode); });
   app.querySelectorAll('[data-set]').forEach((el) => {
     el.onclick = () => {
