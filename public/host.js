@@ -17,6 +17,7 @@ socket.on('connect', () => {
 let lastOffered = [];
 let dealtKey = '';
 let flippedCard = null;
+let diceShownTurn = null;
 
 socket.on('board', (b) => {
   if (b.mode === 'teams' && b.team.phase === 'picking') lastOffered = b.team.deck.offered;
@@ -71,8 +72,7 @@ function render() {
     <section class="stage">${b.canSwitch ? modeSwitch(b) : ''}${teams ? teamStage(b.team, b.players.length) : stage(b)}</section>
     <section class="scoreboard">${teams ? teamScoreboard(b) : `
       <h2>Scores</h2>
-      <ol class="scores">${b.players.map(row).join('')}</ol>
-      <p class="muted">&#10003; = has been imposter this rotation</p>`}
+      <ol class="scores">${b.players.map(row).join('')}</ol>`}
     </section>`;
 
   app.querySelectorAll('[data-act]').forEach((el) => { el.onclick = () => act(el.dataset.act); });
@@ -103,6 +103,7 @@ function render() {
   });
   startCountdown(teams ? b.team.turn && b.team.turn.timerMs : b.voteTimerMs, teams ? 10 : 3);
   runFlips();
+  runDice();
   // Lobby music loops on the lobby screen until a game starts (paused during the music test).
   const inLobby = (teams ? b.team.phase : b.phase) === 'lobby';
   LobbyMusic.set(inLobby && !musicTestEnd);
@@ -198,7 +199,7 @@ function teamStage(t, playerCount) {
         <p class="big">Other teams are writing a word&hellip; ${t.turn.wordsIn} / ${t.turn.wordsNeeded}</p>
         <button class="secondary" data-act="team:pick" ${t.turn.wordsIn ? '' : 'disabled'}>Pick from the words in now</button>
         ${settingsHtml(t.settings)}`;
-    case 'ready': {
+    case 'rolling': {
       let cards = '';
       if (t.turn.cardId) {
         // The picked card flips to show "Picked!" (never the word); the others fade.
@@ -212,11 +213,22 @@ function teamStage(t, playerCount) {
       }
       return `${turnLine}${cards}
         <p class="big">Word picked from <b>${esc(t.turn.writerTeam)}</b>.</p>
-        <p>${esc(t.turn.actorName)} starts the timer on their phone.</p>
+        <p>${esc(t.turn.actorName)} is rolling the dice: act or draw?</p>
+        ${diceHtml(null)}
+        <button class="secondary" data-act="team:hostRoll">Roll for ${esc(t.turn.actorName)}</button>`;
+    }
+    case 'ready': {
+      // The roll tumbles once, then stays on its face.
+      const animate = t.turn.turnNo !== diceShownTurn;
+      diceShownTurn = t.turn.turnNo;
+      return `${turnLine}
+        ${diceHtml(t.turn.dice, animate)}
+        <p>${esc(t.turn.guesserName)} starts the timer on their phone.</p>
         <button class="secondary" data-act="team:hostGo">Start timer</button>`;
     }
     case 'acting':
       return `${turnLine}
+        ${diceStyleLine(t.turn.dice)}
         <p class="timer huge"></p>
         <p class="big">Guess out loud! <b>${esc(t.turn.writerTeam)}</b> confirms on their phone.</p>`;
     case 'turnResult':
@@ -308,7 +320,7 @@ function stage(b) {
 function row(p) {
   const status = board.phase === 'voting' && p.inGame ? (p.voted ? ' <span class="good">voted</span>' : '') : '';
   return `<li class="${p.connected || p.bot ? '' : 'away'}">
-    <span>${esc(p.name)}${p.wasImposter ? ' &#10003;' : ''}${status}</span>
+    <span>${esc(p.name)}${status}</span>
     <b>${p.score}</b>
     <button class="kick" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" title="Remove">&times;</button>
   </li>`;

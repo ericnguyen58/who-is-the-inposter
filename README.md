@@ -38,7 +38,8 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 - Each turn one team plays. The actor's phone shows face-down cards from the **other** teams' words. The actor taps one and it flips to show the word, on the actor's phone only. The scoreboard flips the same card to show only "Picked!" and which team wrote it.
 - Picked cards leave the deck for good, so the deck gets smaller every turn. The app only offers cards that still leave every team enough cards from other teams for its remaining turns.
 - If the deck can't cover a turn (for example the host started before all words were in, or players left), the other teams type a word live for that turn.
-- The actor sees the word and acts it out or draws it on paper, without saying it or pointing at it. Their teammate guesses out loud. Teammates take turns acting.
+- After seeing the word, the actor rolls the **act-or-draw dice** (3 Act faces, 3 Draw faces). The roll tumbles and lands on every device. Then the actor's teammate starts the timer.
+- The actor acts it out or draws it on paper (as the dice says), without saying it or pointing at it. Their teammate guesses out loud. Teammates take turns acting.
 - The team whose word was picked confirms on their phone:
   - **Correct**: the playing team gets **+1**.
   - **Fail**, or the timer runs out: the team that wrote the word gets **+1**.
@@ -83,10 +84,11 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 2. Tap **Make random teams & start**. The scoreboard lists the teams.
 3. Each team writes one word per round on their phones (**Add word**; tap **×** to remove one). The scoreboard shows each team's progress. The first turn starts by itself when every team is done; **Start now with the words in** skips the wait.
 4. The actor taps a face-down card on their phone. It flips to show the word; the scoreboard only shows "Picked!" and the team that wrote it. **Pick a random card** on the scoreboard picks for the actor (for example when the actor is a bot).
-5. When they're ready, the actor taps **Start timer** (the host can also tap **Start timer** on the laptop).
-6. The actor acts or draws on paper and the teammate guesses out loud. The team that wrote the word taps **Correct** or **Fail** on their phone. If time runs out, it counts as a fail.
-7. Tap **Next turn**. The timer and number of rounds can be changed here.
-8. After the last round, the team with the most points wins. Tap **Back to lobby** to play again or switch modes.
+5. The actor taps **Roll the dice**. The dice rolls on every device and lands on **Act** or **Draw**. (**Roll for …** on the scoreboard rolls for the actor.)
+6. The actor's teammate taps **Start timer** on their phone (the host can also tap **Start timer** on the laptop).
+7. The actor acts or draws on paper (as the dice says) and the teammate guesses out loud. The team that wrote the word taps **Correct** or **Fail** on their phone. If time runs out, it counts as a fail.
+8. Tap **Next turn**. The timer and number of rounds can be changed here.
+9. After the last round, the team with the most points wins. Tap **Back to lobby** to play again or switch modes.
 
 ### During play
 

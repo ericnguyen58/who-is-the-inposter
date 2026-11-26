@@ -27,10 +27,11 @@ function writeAll(g) {
   for (const t of writers(g)) g.submitWord(t.members[0], 'word' + t.id);
 }
 
-// Gets the current turn to 'ready' (deck pick or live fallback).
+// Gets the current turn to 'ready': word from the deck (or live fallback), then the dice roll.
 function getWord(g) {
   if (g.phase === 'picking') g.pickCard(g.turn.actorId, g.playerView(g.turn.actorId).cards[0]);
   else writeAll(g);
+  g.roll(g.turn.actorId);
 }
 
 const judgeOf = (g) => teamById(g, g.turn.chosenTeamId).members[0];
@@ -80,7 +81,7 @@ test('cards offered never include the playing team\'s own words; picked cards le
   assert.throws(() => g.pickCard(guesser, offered[0]), /actor/);
   const card = g.deck.find((c) => c.id === offered[0]);
   g.pickCard(actor, card.id);
-  assert.strictEqual(g.phase, 'ready');
+  assert.strictEqual(g.phase, 'rolling');
   assert.strictEqual(g.turn.word, card.word);
   assert.strictEqual(g.turn.chosenTeamId, card.teamId, 'the team that wrote it judges');
   assert.ok(!g.deck.includes(card));
@@ -102,6 +103,7 @@ test('the deck always covers every turn with another team\'s card', () => {
       const cards = g.playerView(g.turn.actorId).cards;
       g.pickCard(g.turn.actorId, cards[Math.floor(Math.random() * cards.length)]);
       assert.notStrictEqual(g.turn.chosenTeamId, g.turn.teamId);
+      g.roll(null);
       g.startTimer(null);
       g.judge(judgeOf(g), Math.random() < 0.5);
       turns++;
@@ -118,7 +120,7 @@ test('host can start before all words are in; missing cards fall back to live wr
   g.begin(); // no words at all
   assert.strictEqual(g.phase, 'writing');
   writeAll(g);
-  assert.strictEqual(g.phase, 'ready');
+  assert.strictEqual(g.phase, 'rolling');
   const h = setup(4, { rounds: 1 });
   h.start();
   h.addWord(h.teams[0].members[0], 'Only');
@@ -249,4 +251,39 @@ test('reset clears teams, deck and scores and goes back to the lobby', () => {
   assert.strictEqual(g.settings.rounds, 2);
   g.start();
   assert.ok(g.teams.every((t) => t.score === 0));
+});
+
+test('actor rolls act-or-draw after picking; the teammate starts the timer', () => {
+  const g = setup(4);
+  g.start();
+  fillDeck(g);
+  const actor = g.turn.actorId;
+  const mate = teamById(g, g.turn.teamId).members.find((m) => m !== actor);
+  g.pickCard(actor, g.playerView(actor).cards[0]);
+  assert.strictEqual(g.phase, 'rolling');
+  assert.throws(() => g.startTimer(mate), /Not ready/);
+  assert.throws(() => g.roll(mate), /Only the actor/);
+  g.roll(actor);
+  assert.strictEqual(g.phase, 'ready');
+  const dice = g.boardView().turn.dice;
+  assert.ok(dice.face >= 0 && dice.face < 6);
+  assert.strictEqual(dice.style, dice.face % 2 === 0 ? 'act' : 'draw');
+  assert.deepStrictEqual(g.playerView(judgeOf(g)).turn.dice, dice, 'every device gets the roll');
+  assert.throws(() => g.startTimer(actor), /teammate/);
+  assert.throws(() => g.startTimer(judgeOf(g)), /teammate/);
+  g.startTimer(mate);
+  assert.strictEqual(g.phase, 'acting');
+});
+
+test('dice lands on act and draw about half the time each', () => {
+  const counts = { act: 0, draw: 0 };
+  for (let i = 0; i < 600; i++) {
+    const g = setup(4);
+    g.start();
+    g.begin();
+    writeAll(g);
+    g.roll(null);
+    counts[g.turn.dice.style]++;
+  }
+  assert.ok(counts.act > 220 && counts.draw > 220, JSON.stringify(counts));
 });

@@ -110,6 +110,9 @@ function render() {
   app.querySelectorAll('[data-unword]').forEach((b) => { b.onclick = () => send('team:removeWord', b.dataset.unword); });
   app.querySelectorAll('.card.pickable').forEach((c) => { c.onclick = () => send('team:pickCard', c.dataset.card); });
   runFlips();
+  const rollBtn = app.querySelector('[data-roll]');
+  if (rollBtn) rollBtn.onclick = () => send('team:roll');
+  runDice();
   const go = app.querySelector('[data-go]');
   if (go) go.onclick = () => send('team:go');
   app.querySelectorAll('[data-judge]').forEach((b) => {
@@ -127,6 +130,7 @@ function send(event, arg = null) {
 // Deck animation state (so cards deal / flip only once, not on every update).
 let phoneDealtKey = '';
 let phoneFlipped = null;
+let phoneDiceTurn = null;
 
 function teamBody(t) {
   const scores = `<ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>`;
@@ -157,6 +161,16 @@ function teamBody(t) {
   const progress = `Other teams are writing your word&hellip; ${turn.wordsIn} / ${turn.wordsNeeded}`;
   const rules = `<p>Act or draw it. Don't say it, don't point at it.</p>`;
 
+  // Dice: tumbles once per roll on every phone, then stays on its face.
+  const rolled = !!turn.dice;
+  let dice = '';
+  if (t.phase === 'rolling') dice = diceHtml(null);
+  if (t.phase === 'ready' && rolled) {
+    dice = diceHtml(turn.dice, turn.turnNo !== phoneDiceTurn);
+    phoneDiceTurn = turn.turnNo;
+  }
+  const style = t.phase === 'acting' ? diceStyleLine(turn.dice) : '';
+
   switch (t.role) {
     case 'actor':
       if (t.phase === 'picking') {
@@ -168,30 +182,36 @@ function teamBody(t) {
           <p class="muted">Words from the other teams. Only you will see it.</p>`;
       }
       if (t.phase === 'writing') return `${myTeam}<p class="big">You act / draw this turn!</p><p>${progress}</p>`;
-      if (t.phase === 'ready' && turn.cardId) {
-        const anim = turn.cardId !== phoneFlipped;
-        phoneFlipped = turn.cardId;
-        return `${myTeam}<div class="cards single">${cardHtml(turn.cardId, `<span class="card-word">${esc(t.word)}</span>`, { cls: `big ${anim ? 'flip' : 'flipped'}` })}</div>
-          ${rules}<button data-go>Start timer</button>`;
+      if (t.phase === 'rolling') {
+        let card = wordCard(t.word);
+        if (turn.cardId) {
+          const anim = turn.cardId !== phoneFlipped;
+          phoneFlipped = turn.cardId;
+          card = `<div class="cards single">${cardHtml(turn.cardId, `<span class="card-word">${esc(t.word)}</span>`, { cls: `big ${anim ? 'flip' : 'flipped'}` })}</div>`;
+        }
+        return `${myTeam}${card}<p class="big">Act or draw? Roll the dice!</p><button data-roll>Roll the dice</button>`;
       }
-      if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${rules}<button data-go>Start timer</button>`;
-      return `${timer}${wordCard(t.word)}${rules}`;
+      if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${dice}<p>Wait for ${esc(turn.guesserName)} to start the timer.</p>`;
+      return `${timer}${style}${wordCard(t.word)}${rules}`;
     case 'guesser':
       if (t.phase === 'picking') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} is picking a card&hellip;</p>`;
       if (t.phase === 'writing') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} will act or draw. ${progress}</p>`;
-      if (t.phase === 'ready') return `${myTeam}<p class="big">Get ready to guess!</p><p>${esc(turn.actorName)} is about to start.</p>`;
-      return `${timer}<p class="big">Guess out loud!</p>`;
+      if (t.phase === 'rolling') return `${myTeam}<p class="big">Get ready to guess!</p><p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
+      if (t.phase === 'ready') return `${myTeam}${dice}<p>Start the timer when ${esc(turn.actorName)} is ready.</p><button data-go>Start timer</button>`;
+      return `${timer}${style}<p class="big">Guess out loud!</p>`;
     case 'writer':
       return `${myTeam}<p class="big">Write a word for ${esc(turn.playingTeam)}</p>
         <form id="wordForm"><input id="word" maxlength="30" autocomplete="off" placeholder="A word or short phrase" required><button type="submit">Submit</button></form>
         <p class="muted">${t.myTeamWord ? `Your team's word: <b>${esc(t.myTeamWord)}</b> (you can change it)` : 'One word per team. Any teammate can submit.'}</p>`;
     case 'judge':
-      if (t.phase === 'ready') return `${myTeam}<p class="big">Your team's word was picked!</p>${wordCard(t.word)}<p>Waiting for ${esc(turn.actorName)} to start.</p>`;
-      return `${timer}${wordCard(t.word)}<p class="big">Did ${esc(turn.playingTeam)} guess it?</p>
+      if (t.phase === 'rolling') return `${myTeam}<p class="big">Your team's word was picked!</p>${wordCard(t.word)}<p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
+      if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${dice}<p>Waiting for ${esc(turn.guesserName)} to start the timer.</p>`;
+      return `${timer}${style}${wordCard(t.word)}<p class="big">Did ${esc(turn.playingTeam)} guess it?</p>
         <div class="judge"><button class="ok" data-judge="1">Correct</button><button class="fail" data-judge="0">Fail</button></div>
         <p class="muted">Fail = they broke the rules or gave up. Time running out also counts as a fail.</p>`;
     default:
-      return `${myTeam}${timer}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} acts / draws.</p>`;
+      if (t.phase === 'rolling') return `${myTeam}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
+      return `${myTeam}${timer}${style}${dice}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} acts / draws.</p>`;
   }
 }
 
