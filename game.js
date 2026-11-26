@@ -4,6 +4,7 @@ const WORD_PAIRS = require('./words');
 
 const MAX_ROUNDS = 5;
 const MIN_PLAYERS = 3;
+const VOTE_SECONDS = 10; // each vote lasts the first 10 seconds of the music
 const SKIP = 'skip';
 
 // Phases: lobby -> clues <-> voting -> result -> (next game) clues ... -> done
@@ -19,6 +20,7 @@ class Game {
     this.gameNo = 0;
     this.current = null; // the game in progress
     this.roundNote = null; // what happened in the last round when nobody was voted out
+    this.voteNo = 0; // counts votes, so an old vote timer can't close a newer vote
   }
 
   // ---------- players ----------
@@ -81,11 +83,23 @@ class Game {
     this.startGame();
   }
 
-  startVote() {
+  // Returns how long the vote lasts in ms. The server closes it with voteTimeUp().
+  startVote(now = Date.now()) {
     if (this.phase !== 'clues') throw new Error('Not in a clue round');
     this.current.votes.clear();
+    this.current.voteEndsAt = now + VOTE_SECONDS * 1000;
+    this.voteNo += 1;
     this.roundNote = null;
     this.phase = 'voting';
+    return VOTE_SECONDS * 1000;
+  }
+
+  voteTimeUp(voteNo) {
+    if (this.phase === 'voting' && this.voteNo === voteNo) this.closeVote();
+  }
+
+  voteTimerMs(now) {
+    return this.phase === 'voting' ? Math.max(0, this.current.voteEndsAt - now) : null;
   }
 
   vote(voterId, target) {
@@ -217,7 +231,7 @@ class Game {
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   }
 
-  boardView(connected = new Set()) {
+  boardView(connected = new Set(), now = Date.now()) {
     const g = this.current;
     return {
       phase: this.phase,
@@ -233,13 +247,14 @@ class Game {
         voted: this.phase === 'voting' && g.votes.has(p.id),
       })),
       votesIn: this.phase === 'voting' ? g.votes.size : 0,
+      voteTimerMs: this.voteTimerMs(now),
       votesNeeded: g ? g.participants.length : 0,
       roundNote: this.roundNoteView(),
       result: this.resultView(),
     };
   }
 
-  playerView(id) {
+  playerView(id, now = Date.now()) {
     const me = this.players.get(id);
     if (!me) return null;
     const g = this.current;
@@ -253,6 +268,7 @@ class Game {
       word: null,
       options: [],
       myVote: null,
+      voteTimerMs: this.voteTimerMs(now),
       roundNote: this.roundNoteView(),
       result: this.resultView(),
       players: this.scores().map((p) => ({ name: p.name, score: p.score })),
@@ -276,4 +292,4 @@ function shuffle(arr, rng) {
   return arr;
 }
 
-module.exports = { Game, MAX_ROUNDS, MIN_PLAYERS, SKIP };
+module.exports = { Game, MAX_ROUNDS, MIN_PLAYERS, SKIP, VOTE_SECONDS };

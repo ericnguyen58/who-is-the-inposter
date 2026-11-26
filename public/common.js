@@ -14,19 +14,36 @@ function resultHtml(r) {
     : r.votedOutName
       ? `${esc(r.votedOutName)} was voted out by mistake in round ${r.round}.`
       : `Survived all ${r.round} rounds.`;
-  const tally = r.tally.length
-    ? `<ul class="tally">${r.tally.map((t) => `<li>${esc(t.name)} <b>${t.count}</b></li>`).join('')}</ul>`
-    : '';
-  return `${head}
+  return `${head}${voteBoardHtml(r.tally)}
     <p class="big">Imposter: <b>${esc(r.imposterName)}</b></p>
     <p>Everyone's word: <b>${esc(r.crewWord)}</b> &middot; Imposter's word: <b>${esc(r.imposterWord)}</b></p>
-    <p>${how}</p>${tally}`;
+    <p>${how}</p>`;
+}
+
+// Vote reveal: a leaderboard when votes went to more than one choice,
+// otherwise only the one who was voted out.
+function voteBoardHtml(tally) {
+  if (!tally || !tally.length) return '<p class="muted">No votes</p>';
+  if (tally.length === 1) {
+    const t = tally[0];
+    return t.name === 'Skip'
+      ? '<div class="voted-out"><span>Everyone skipped</span></div>'
+      : `<div class="voted-out"><span>Voted out</span><b>${esc(t.name)}</b></div>`;
+  }
+  const max = tally[0].count;
+  const rows = tally.map((t, i) => `<li class="${t.count === max ? 'top' : ''}">
+      <span class="rank">${i + 1}</span>
+      <span class="who">${esc(t.name)}</span>
+      <span class="bar"><i style="width:${Math.round((t.count / max) * 100)}%"></i></span>
+      <b>${t.count}</b>
+    </li>`).join('');
+  return `<ol class="leaderboard">${rows}</ol>`;
 }
 
 function roundNoteHtml(n) {
   if (!n) return '';
   const why = n.reason === 'skip' ? 'Skip won' : 'Tie';
-  return `<p class="note">Round ${n.round}: ${why}, nobody is out.</p>`;
+  return `<p class="note">Round ${n.round}: ${why}, nobody is out.</p>${voteBoardHtml(n.tally)}`;
 }
 
 function trackConnection(socket) {
@@ -48,16 +65,19 @@ function teamResultHtml(r) {
 }
 
 // Counts down every element with class "timer" to the given remaining time.
+// The timer turns red for the last `lowAt` seconds.
 let countdownEnd = null;
 let countdownLoop = null;
-function startCountdown(ms) {
+let countdownLow = 10;
+function startCountdown(ms, lowAt = 10) {
   countdownEnd = ms == null ? null : performance.now() + ms;
+  countdownLow = lowAt;
   const tick = () => {
     if (countdownEnd == null) return;
     const left = Math.max(0, Math.ceil((countdownEnd - performance.now()) / 1000));
     document.querySelectorAll('.timer').forEach((el) => {
       el.textContent = `${left}s`;
-      el.classList.toggle('low', left <= 10);
+      el.classList.toggle('low', left <= countdownLow);
     });
   };
   tick();
@@ -90,7 +110,7 @@ function helpHtml(mode, forHost) {
     ? [
       'Tap <b>Start game</b> (3+ players). Each phone shows a word.',
       'Everyone says one clue about their word out loud.',
-      'Tap <b>Start vote</b>. Phones vote for a player or Skip. Tap <b>Close vote now</b> to end it early.',
+      'Tap <b>Start vote</b>. Music plays and phones vote for a player or Skip. The vote lasts 10 seconds.',
       'Tie or Skip = nobody out, next round (max 5 rounds).',
       'Tap <b>Next game</b>. Everyone is the imposter once per rotation.',
     ]
@@ -98,7 +118,7 @@ function helpHtml(mode, forHost) {
       'Your word is on the screen. Tap it to hide it.',
       'One player has a different word: the imposter. Nobody is told who, maybe not even you.',
       'Each round, say one clue about your word out loud. Don’t say the word.',
-      'Vote for who you think has the different word, or Skip.',
+      'When the vote starts, tap the tile of who you think has the different word, or Skip. You have 10 seconds.',
     ];
   return `<div class="help"><h2>Imposter</h2>${list(steps)}
     <p><b>Points:</b> imposter caught = +1 to everyone else. Wrong player voted out, or 5 rounds survived = imposter wins points equal to the round number.</p></div>`;

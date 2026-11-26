@@ -14,9 +14,20 @@ socket.on('connect', () => {
 });
 
 socket.on('board', (b) => {
+  // Music plays while an Imposter vote is open.
+  const voting = b.mode === 'imposter' && b.phase === 'voting';
+  const wasVoting = !!board && board.mode === 'imposter' && board.phase === 'voting';
+  if (voting && !wasVoting) VoteMusic.start();
+  if (!voting && wasVoting) {
+    VoteMusic.stop();
+    VoteMusic.sting();
+  }
   board = b;
   render();
 });
+
+// Browsers only allow sound after a click on the page.
+document.addEventListener('click', () => VoteMusic.unlock(), true);
 
 function act(event, arg = null) {
   socket.emit(event, arg, (res) => { if (!res.ok) alert(res.error); });
@@ -31,6 +42,7 @@ function render() {
       <p>Scan or open<br><b>${esc(b.joinUrl.replace(/\?.*/, ''))}</b></p>
       <p class="code">${esc(b.code)}</p>
       <button class="secondary" data-help>${showHelp ? 'Hide help' : 'How to play'}</button>
+      <button class="secondary" data-sound>${VoteMusic.isMuted() ? 'Sound: off' : 'Sound: on'}</button>
       ${showHelp ? helpHtml(b.mode, true) : ''}
     </section>
     <section class="stage">${b.canSwitch ? modeSwitch(b) : ''}${teams ? teamStage(b.team, b.players.length) : stage(b)}</section>
@@ -42,6 +54,11 @@ function render() {
 
   app.querySelectorAll('[data-act]').forEach((el) => { el.onclick = () => act(el.dataset.act); });
   app.querySelector('[data-help]').onclick = () => { showHelp = !showHelp; render(); };
+  app.querySelector('[data-sound]').onclick = () => {
+    VoteMusic.setMuted(!VoteMusic.isMuted());
+    if (!VoteMusic.isMuted() && b.mode === 'imposter' && b.phase === 'voting') VoteMusic.start();
+    render();
+  };
   app.querySelectorAll('[data-mode]').forEach((el) => { el.onclick = () => act('host:mode', el.dataset.mode); });
   app.querySelectorAll('[data-set]').forEach((el) => {
     el.onclick = () => {
@@ -52,7 +69,7 @@ function render() {
   app.querySelectorAll('[data-kick]').forEach((el) => {
     el.onclick = () => { if (confirm(`Remove ${el.dataset.name}?`)) act('host:kick', el.dataset.kick); };
   });
-  startCountdown(teams ? b.team.turn && b.team.turn.timerMs : null);
+  startCountdown(teams ? b.team.turn && b.team.turn.timerMs : b.voteTimerMs, teams ? 10 : 3);
 }
 
 function modeSwitch(b) {
@@ -141,6 +158,7 @@ function stage(b) {
         <button data-act="host:startVote">Start vote</button>`;
     case 'voting':
       return `${gameLine}
+        <p class="timer huge"></p>
         <p class="big">Voting&hellip; ${b.votesIn} / ${b.votesNeeded}</p>
         <button class="secondary" data-act="host:closeVote">Close vote now</button>`;
     case 'result': {
