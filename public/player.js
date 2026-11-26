@@ -77,8 +77,10 @@ function render() {
 
   const pts = s.mode === 'teams' ? (s.team.myTeam ? s.team.myTeam.score : 0) : s.me.score;
   app.innerHTML = `<header class="me"><span>${esc(s.me.name)}</span>
-    <span>${pts} pts ${headerButtons(s)}</span></header>
-    ${panelHtml(s)}${body}`;
+    <span>${pts} pts</span></header>
+    ${body}
+    ${panel ? `<div class="fab-panel">${panelHtml(s)}</div>` : ''}
+    <div class="fab">${headerButtons(s)}</div>`;
 
   app.querySelectorAll('[data-panel]').forEach((b) => {
     b.onclick = () => { panel = panel === b.dataset.panel ? null : b.dataset.panel; render(); };
@@ -291,7 +293,7 @@ function save(k, v) {
   try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ }
 }
 
-// ---------- Header buttons: leaderboard, my words, help ----------
+// ---------- Corner buttons (bottom right): leaderboard, my words, help ----------
 
 function headerButtons(s) {
   const btn = (id, icon, title) => `<button class="help-btn ${panel === id ? 'on' : ''}" data-panel="${id}" title="${title}">${panel === id ? '&times;' : icon}</button>`;

@@ -426,3 +426,39 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
 }
 .my-words li.used span { text-decoration: line-through; color: var(--muted); }
 .my-words li small { color: var(--muted); }
+
+/* ---------- Phone corner buttons (bottom right) ---------- */
+
+.phone main { padding-bottom: 96px; } /* room so the buttons never cover content */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+}
+.fab .help-btn {
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  font-size: 1.3rem;
+  background: var(--panel);
+  border: 1px solid var(--gold);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.fab .help-btn.on { background: var(--accent); }
+.fab-panel {
+  position: fixed;
+  right: 16px;
+  left: 16px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 19;
+  max-width: 448px;
+  max-height: 60vh;
+  margin-left: auto;
+  overflow-y: auto;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+.fab-panel .help { margin: 0; background: var(--panel); border-color: var(--gold); }
