@@ -7,6 +7,7 @@ const urlCode = new URLSearchParams(location.search).get('code') || '';
 let playerId = load('playerId');
 let state = null;
 let hideWord = false;
+let lastTeamPhase = null;
 let lastWord = null;
 let joinError = '';
 let showHelp = false;
@@ -27,6 +28,10 @@ socket.on('state', (s) => {
     lastWord = word;
     hideWord = false;
   }
+  // Act & Draw: words hide by themselves when the timer starts (tap to peek).
+  const teamPhase = s.mode === 'teams' ? s.team.phase : null;
+  if (teamPhase === 'acting' && lastTeamPhase !== 'acting') hideWord = true;
+  lastTeamPhase = teamPhase;
   render();
 });
 
@@ -166,10 +171,12 @@ function teamBody(t) {
   let dice = '';
   if (t.phase === 'rolling') dice = diceHtml(null);
   if (t.phase === 'ready' && rolled) {
-    dice = diceHtml(turn.dice, turn.turnNo !== phoneDiceTurn);
+    dice = diceHtml(turn.dice, turn.turnNo !== phoneDiceTurn, t.role === 'actor' ? null : turn.actorName);
     phoneDiceTurn = turn.turnNo;
   }
-  const style = t.phase === 'acting' ? diceStyleLine(turn.dice) : '';
+  const style = t.phase === 'acting' ? diceStyleLine(turn.dice, t.role === 'actor' ? null : turn.actorName) : '';
+  const timesUp = `<p class="timer low">0s</p><p class="big">Time's up!</p>`;
+  const waitJudge = `<p>Waiting for ${esc(turn.writerTeam || '')} to decide.</p>`;
 
   switch (t.role) {
     case 'actor':
@@ -189,15 +196,17 @@ function teamBody(t) {
           phoneFlipped = turn.cardId;
           card = `<div class="cards single">${cardHtml(turn.cardId, `<span class="card-word">${esc(t.word)}</span>`, { cls: `big ${anim ? 'flip' : 'flipped'}` })}</div>`;
         }
-        return `${myTeam}${card}<p class="big">Act or draw? Roll the dice!</p><button data-roll>Roll the dice</button>`;
+        return `${myTeam}${card}${dice}<p class="big">Act or draw? Roll the dice!</p><button data-roll>Roll the dice</button>`;
       }
       if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${dice}<p>Wait for ${esc(turn.guesserName)} to start the timer.</p>`;
+      if (t.phase === 'judging') return `${timesUp}${wordCard(t.word)}${waitJudge}`;
       return `${timer}${style}${wordCard(t.word)}${rules}`;
     case 'guesser':
       if (t.phase === 'picking') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} is picking a card&hellip;</p>`;
       if (t.phase === 'writing') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} will act or draw. ${progress}</p>`;
       if (t.phase === 'rolling') return `${myTeam}<p class="big">Get ready to guess!</p><p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
       if (t.phase === 'ready') return `${myTeam}${dice}<p>Start the timer when ${esc(turn.actorName)} is ready.</p><button data-go>Start timer</button>`;
+      if (t.phase === 'judging') return `${timesUp}${waitJudge}`;
       return `${timer}${style}<p class="big">Guess out loud!</p>`;
     case 'writer':
       return `${myTeam}<p class="big">Write a word for ${esc(turn.playingTeam)}</p>
@@ -206,11 +215,14 @@ function teamBody(t) {
     case 'judge':
       if (t.phase === 'rolling') return `${myTeam}<p class="big">Your team's word was picked!</p>${wordCard(t.word)}<p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
       if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${dice}<p>Waiting for ${esc(turn.guesserName)} to start the timer.</p>`;
-      return `${timer}${style}${wordCard(t.word)}<p class="big">Did ${esc(turn.playingTeam)} guess it?</p>
+      return `${t.phase === 'judging' ? timesUp : `${timer}${style}`}${wordCard(t.word)}<p class="big">Did ${esc(turn.playingTeam)} guess it?</p>
         <div class="judge"><button class="ok" data-judge="1">Correct</button><button class="fail" data-judge="0">Fail</button></div>
-        <p class="muted">Fail = they broke the rules or gave up. Time running out also counts as a fail.</p>`;
+        <p class="muted">${t.phase === 'judging'
+          ? 'Correct if they got it in time, otherwise Fail.'
+          : 'Tap Correct the moment they guess it. Fail = they broke the rules or gave up. You can also decide after the time is up.'}</p>`;
     default:
       if (t.phase === 'rolling') return `${myTeam}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
+      if (t.phase === 'judging') return `${myTeam}${timesUp}${waitJudge}`;
       return `${myTeam}${timer}${style}${dice}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} acts / draws.</p>`;
   }
 }

@@ -139,6 +139,33 @@ const VoteMusic = (() => {
     [60, 64, 67, 72].forEach((n, i) => tone(hz(n), t + i * 0.08, 0.7, 'triangle', 0.18));
   }
 
+  // Result sounds for Act & Draw (original, synthesized).
+  function correct() {
+    unlock();
+    if (muted || !ctx) return;
+    const t = ctx.currentTime + 0.02;
+    [72, 76, 79, 84].forEach((n, i) => tone(hz(n), t + i * 0.09, 0.35, 'triangle', 0.22));
+    [84, 88, 91].forEach((n) => tone(hz(n), t + 0.4, 0.9, 'triangle', 0.12));
+    for (let i = 0; i < 6; i++) tone(hz(96 + (i % 3) * 4), t + 0.45 + i * 0.06, 0.12, 'sine', 0.06);
+  }
+
+  function wrong() {
+    unlock();
+    if (muted || !ctx) return;
+    const t = ctx.currentTime + 0.02;
+    [55, 54, 53].forEach((n, i) => tone(hz(n), t + i * 0.32, 0.3, 'sawtooth', 0.12));
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(hz(52), t + 0.96);
+    o.frequency.exponentialRampToValueAtTime(hz(45), t + 1.8);
+    g.gain.setValueAtTime(0.12, t + 0.96);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.9);
+    o.connect(g).connect(master);
+    o.start(t + 0.96);
+    o.stop(t + 2);
+  }
+
   function setMuted(m) {
     muted = m;
     try { localStorage.setItem('muted', m ? '1' : ''); } catch { /* private mode */ }
@@ -149,7 +176,7 @@ const VoteMusic = (() => {
     try { return localStorage.getItem('muted') === '1'; } catch { return false; }
   }
 
-  return { unlock, start, stop, sting, setMuted, setCustom, isMuted: () => muted };
+  return { unlock, start, stop, sting, correct, wrong, setMuted, setCustom, isMuted: () => muted };
 })();
 
 // The host's own lobby music (custom-music/lobby.mp3), looped on the lobby screen until a game starts.

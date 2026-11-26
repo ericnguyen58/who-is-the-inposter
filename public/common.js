@@ -96,7 +96,7 @@ function helpHtml(mode, forHost) {
         'The actor rolls the dice: <b>Act</b> or <b>Draw</b> (or tap <b>Roll for …</b> here).',
         'The actor\u2019s teammate taps <b>Start timer</b> on their phone (or tap it here).',
         'The actor acts or draws on paper. The teammate guesses out loud.',
-        'The team that wrote the word taps <b>Correct</b> or <b>Fail</b>. Time running out = fail.',
+        'The team that wrote the word taps <b>Correct</b> the moment it is guessed, or <b>Correct</b> / <b>Fail</b> after the time is up.',
         'Tap <b>Next turn</b>. A round = every team plays once. Most points after the last round wins.',
       ]
       : [
@@ -104,10 +104,10 @@ function helpHtml(mode, forHost) {
         'When your team plays, the actor picks a face-down card from the other teams\u2019 words, sees the word and rolls the dice: <b>Act</b> or <b>Draw</b>.',
         'The actor\u2019s teammate taps <b>Start timer</b>.',
         'The actor acts or draws it on paper. No saying it, no pointing at it. The teammate guesses out loud.',
-        'If your team’s word is picked, you judge: tap <b>Correct</b> or <b>Fail</b>.',
+        'If your team’s word is picked, you judge: tap <b>Correct</b> the moment they guess it, or <b>Correct</b> / <b>Fail</b> after the time is up.',
       ];
     return `<div class="help"><h2>Act &amp; Draw</h2>${list(steps)}
-      <p><b>Points:</b> guessed = +1 to the playing team. Fail or time up = +1 to the team that wrote the word.</p></div>`;
+      <p><b>Points:</b> guessed = +1 to the playing team. Fail = +1 to the team that wrote the word.</p></div>`;
   }
   const steps = forHost
     ? [
@@ -155,7 +155,7 @@ const DICE_ROT = [[0, 0], [0, 180], [0, -90], [0, 90], [-90, 0], [90, 0]];
 
 // dice = { face, style } or null (not rolled yet: the die spins slowly).
 // animate = tumble from a fast spin and land on the face (once per roll; see runDice).
-function diceHtml(dice, animate) {
+function diceHtml(dice, animate, actorName) {
   const faces = DICE_ROT.map((_, i) => {
     const draw = i % 2 === 1;
     return `<div class="die-face f${i} ${draw ? 'draw' : 'act'}">
@@ -165,7 +165,7 @@ function diceHtml(dice, animate) {
   const [x, y] = DICE_ROT[dice.face];
   const final = `rotateX(${x}deg) rotateY(${y}deg)`;
   const start = `rotateX(${x + 1080}deg) rotateY(${y + 720}deg)`;
-  const label = dice.style === 'act' ? 'Act it out!' : 'Draw it!';
+  const label = diceLabel(dice, actorName);
   return `<div class="dice-wrap"><div class="die" ${animate ? `data-roll="${final}"` : ''} style="transform:${animate ? start : final}">${faces}</div></div>
     <p class="dice-result ${dice.style} ${animate ? 'reveal' : ''}">${label}</p>`;
 }
@@ -180,9 +180,13 @@ function runDice() {
   }));
 }
 
-function diceStyleLine(dice) {
+function diceLabel(dice, actorName) {
+  return `${esc(actorName || 'You')} ${actorName ? 'has' : 'have'} to ${dice.style}!`;
+}
+
+function diceStyleLine(dice, actorName) {
   if (!dice) return '';
-  return `<p class="dice-result ${dice.style}">${dice.style === 'act' ? 'Act it out!' : 'Draw it!'}</p>`;
+  return `<p class="dice-result ${dice.style}">${diceLabel(dice, actorName)}</p>`;
 }
 
 // ---------- Leaderboard top 3 ----------
