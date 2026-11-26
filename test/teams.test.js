@@ -156,3 +156,17 @@ test('late joiner goes to the smallest team', () => {
   g.addPlayer('p6');
   assert.deepStrictEqual(g.teams.map((t) => t.members.length).sort(), [3, 3]);
 });
+
+test('reset clears teams and scores and goes back to the lobby', () => {
+  const g = setup(4, { rounds: 2 });
+  g.start();
+  writeAll(g);
+  g.startTimer(null);
+  g.judge(teamById(g, g.turn.chosenTeamId).members[0], true);
+  g.reset();
+  assert.strictEqual(g.phase, 'lobby');
+  assert.strictEqual(g.teams.length, 0);
+  assert.strictEqual(g.settings.rounds, 2);
+  g.start();
+  assert.ok(g.teams.every((t) => t.score === 0));
+});

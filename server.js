@@ -157,6 +157,14 @@ io.on('connection', (socket) => {
         teamGame.addPlayer(id);
         bots.add(id);
       }
+      game.useTestWords = true;
+    },
+    // Stops any game, sets scores to 0 and goes back to the lobby. Players and bots stay.
+    'host:reset': () => {
+      clearTimeout(turnTimer);
+      clearTimeout(voteTimer);
+      game.reset();
+      teamGame.reset();
     },
     'host:kick': (id) => {
       removePlayer(id);
@@ -189,6 +197,7 @@ function removePlayer(id) {
   teamGame.removePlayer(id);
   game.removePlayer(id);
   bots.delete(id);
+  game.useTestWords = bots.size > 0;
 }
 
 function leave(socket) {
@@ -239,6 +248,7 @@ function broadcast() {
     qr,
     mode,
     canSwitch: canSwitchMode(),
+    testing: bots.size > 0,
     team: teamGame.boardView(now),
   });
   for (const id of game.players.keys()) {

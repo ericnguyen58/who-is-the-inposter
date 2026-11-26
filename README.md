@@ -88,6 +88,7 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 
 - **Player's phone locks or the page closes:** they reopen the same link. Their name, word and score come back.
 - **Remove a player:** tap **×** next to their name on the scoreboard.
+- **Reset:** tap **Reset** on the scoreboard. It stops the game, sets all scores to 0 and goes back to the lobby. Players stay joined, and the mode and settings stay the same.
 - **New player joins mid-game:** in Imposter mode they play from the next game. In Act & Draw they're added to the smallest team.
 - **Switch modes:** only possible when no game is running (lobby, or after a game ends).
 - **Help:** tap **How to play** on the scoreboard, or **?** on a phone, for the rules of the current mode.
