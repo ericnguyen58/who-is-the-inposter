@@ -276,14 +276,15 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
 /* ---------- Act & Draw word cards ---------- */
 
 .cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
   margin: 16px 0;
   perspective: 900px;
 }
-.cards.single { grid-template-columns: minmax(0, 260px); justify-content: center; }
-.card { aspect-ratio: 3 / 4; transition: opacity 0.5s, transform 0.5s; }
+.card { flex: 0 0 90px; aspect-ratio: 3 / 4; transition: opacity 0.5s, transform 0.5s; }
+.cards.single .card { flex: 0 1 260px; }
 .card-inner {
   position: relative;
   width: 100%;
@@ -345,49 +346,42 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
   border: 1px solid var(--line);
 }
 
-/* ---------- Act & Draw dice ---------- */
+/* ---------- Act & Draw coin (2D) ---------- */
 
-.dice-wrap { width: 110px; height: 110px; margin: 20px auto 8px; perspective: 700px; }
-.die {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  transition: transform 1.8s cubic-bezier(0.15, 0.75, 0.25, 1);
-}
-.die.idle { animation: idle-spin 5s linear infinite; }
-@keyframes idle-spin {
-  from { transform: rotateX(-20deg) rotateY(0deg); }
-  to { transform: rotateX(-20deg) rotateY(360deg); }
-}
-.die-face {
-  position: absolute;
-  inset: 0;
+.coin {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  border-radius: 18px;
-  border: 3px solid var(--gold);
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.18);
+  width: 120px;
+  height: 120px;
+  margin: 20px auto 8px;
+  border-radius: 50%;
+  border: 5px solid var(--gold);
+  box-shadow: inset 0 0 0 6px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.35);
   font-family: Georgia, "Times New Roman", serif;
 }
-.die-face span { font-size: 2rem; }
-.die-face b { font-size: 1.05rem; }
-.die-face.act { background: #efe3cf; color: #7a3f18; }
-.die-face.draw { background: #dfe6cc; color: #3f4a22; }
-.die-face.f0 { transform: translateZ(55px); }
-.die-face.f1 { transform: rotateY(180deg) translateZ(55px); }
-.die-face.f2 { transform: rotateY(90deg) translateZ(55px); }
-.die-face.f3 { transform: rotateY(-90deg) translateZ(55px); }
-.die-face.f4 { transform: rotateX(90deg) translateZ(55px); }
-.die-face.f5 { transform: rotateX(-90deg) translateZ(55px); }
+.coin span { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.coin i { font-style: normal; font-size: 2rem; }
+.coin b { font-size: 1.1rem; }
+.coin.act { background: #efe3cf; color: #7a3f18; }
+.coin.draw { background: #dfe6cc; color: #3f4a22; }
+.coin.waiting { background: var(--panel); color: var(--gold); font-size: 2.4rem; animation: bob 1.4s ease-in-out infinite; }
+.coin.spinning { animation: coin-spin 0.25s linear infinite; }
+.coin.landed { animation: coin-land 0.35s ease-out; }
+@keyframes bob { 50% { transform: translateY(-8px); } }
+@keyframes coin-spin {
+  0%, 100% { transform: scaleX(1) translateY(-14px); }
+  50% { transform: scaleX(0.08) translateY(-14px); }
+}
+@keyframes coin-land {
+  from { transform: scale(1.25); }
+  to { transform: scale(1); }
+}
 
-.dice-result { font-family: Georgia, "Times New Roman", serif; font-size: 1.6rem; font-weight: 700; margin: 6px 0; }
-.dice-result.act { color: var(--accent); }
-.dice-result.draw { color: var(--good-text); }
-.dice-result.reveal { animation: pop 0.45s ease-out 1.75s both; }
+.coin-result { font-family: Georgia, "Times New Roman", serif; font-size: 1.6rem; font-weight: 700; margin: 6px 0; }
+.coin-result.act { color: var(--accent); }
+.coin-result.draw { color: var(--good-text); }
+.coin-result.reveal { animation: pop 0.45s ease-out 1.5s both; }
 @keyframes pop {
   from { opacity: 0; transform: scale(0.6); }
   70% { transform: scale(1.12); }
@@ -416,3 +410,19 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
 .scores li.top1 b { color: var(--gold); font-size: 1.2em; }
 .scores li.top2 b { color: #d6d0c4; }
 .scores li.top3 b { color: #d08a55; }
+
+/* ---------- Phone header panels ---------- */
+
+.me span:last-child { display: inline-flex; align-items: center; gap: 6px; }
+.help-btn.on { border-color: var(--gold); }
+.rename-btn {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  padding: 0 6px;
+  background: none;
+  color: var(--gold);
+  font-size: 1rem;
+}
+.my-words li.used span { text-decoration: line-through; color: var(--muted); }
+.my-words li small { color: var(--muted); }

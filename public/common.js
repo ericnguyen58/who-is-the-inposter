@@ -93,7 +93,7 @@ function helpHtml(mode, forHost) {
         'Set <b>Timer</b> and <b>Rounds</b>, then tap <b>Make random teams &amp; start</b> (4+ players).',
         'Every team writes one word per round on their phones. Turns start when all teams are done (or tap <b>Start now with the words in</b>).',
         'The actor picks a face-down card on their phone. Here it only shows <b>Picked!</b> and the team that wrote it.',
-        'The actor rolls the dice: <b>Act</b> or <b>Draw</b> (or tap <b>Roll for …</b> here).',
+        'The actor flips the coin: <b>Act</b> or <b>Draw</b> (or tap <b>Flip for …</b> here).',
         'The actor\u2019s teammate taps <b>Start timer</b> on their phone (or tap it here).',
         'The actor acts or draws on paper. The teammate guesses out loud.',
         'The team that wrote the word taps <b>Correct</b> the moment it is guessed, or <b>Correct</b> / <b>Fail</b> after the time is up.',
@@ -101,7 +101,7 @@ function helpHtml(mode, forHost) {
       ]
       : [
         'Before the first turn, your team writes one word per round. Only your team sees them.',
-        'When your team plays, the actor picks a face-down card from the other teams\u2019 words, sees the word and rolls the dice: <b>Act</b> or <b>Draw</b>.',
+        'When your team plays, the actor picks a face-down card from the other teams\u2019 words, sees the word and flips the coin: <b>Act</b> or <b>Draw</b>.',
         'The actor\u2019s teammate taps <b>Start timer</b>.',
         'The actor acts or draws it on paper. No saying it, no pointing at it. The teammate guesses out loud.',
         'If your team’s word is picked, you judge: tap <b>Correct</b> the moment they guess it, or <b>Correct</b> / <b>Fail</b> after the time is up.',
@@ -148,45 +148,48 @@ function runFlips() {
   }));
 }
 
-// ---------- Act & Draw dice (3 Act faces, 3 Draw faces) ----------
+// ---------- Act & Draw coin (2D): one Act side, one Draw side ----------
 
-// Cube rotation [x, y] that brings each face to the front.
-const DICE_ROT = [[0, 0], [0, 180], [0, -90], [0, 90], [-90, 0], [90, 0]];
+const COIN_FACE = { act: '<i>\u{1F3AD}</i><b>Act</b>', draw: '<i>\u270F\uFE0F</i><b>Draw</b>' };
 
-// dice = { face, style } or null (not rolled yet: the die spins slowly).
-// animate = tumble from a fast spin and land on the face (once per roll; see runDice).
-function diceHtml(dice, animate, actorName) {
-  const faces = DICE_ROT.map((_, i) => {
-    const draw = i % 2 === 1;
-    return `<div class="die-face f${i} ${draw ? 'draw' : 'act'}">
-      <span>${draw ? '✏️' : '\u{1F3AD}'}</span><b>${draw ? 'Draw' : 'Act'}</b></div>`;
-  }).join('');
-  if (!dice) return `<div class="dice-wrap"><div class="die idle">${faces}</div></div>`;
-  const [x, y] = DICE_ROT[dice.face];
-  const final = `rotateX(${x}deg) rotateY(${y}deg)`;
-  const start = `rotateX(${x + 1080}deg) rotateY(${y + 720}deg)`;
-  const label = diceLabel(dice, actorName);
-  return `<div class="dice-wrap"><div class="die" ${animate ? `data-roll="${final}"` : ''} style="transform:${animate ? start : final}">${faces}</div></div>
-    <p class="dice-result ${dice.style} ${animate ? 'reveal' : ''}">${label}</p>`;
+// coin = { side } or null (not flipped yet). animate = spin and land once (see runCoins).
+function coinHtml(coin, animate, actorName) {
+  if (!coin) return '<div class="coin waiting"><span><b>?</b></span></div>';
+  const start = animate ? 'act' : coin.side;
+  return `<div class="coin ${start} ${animate ? 'spinning' : ''}" ${animate ? `data-flip="${coin.side}"` : ''}><span>${COIN_FACE[start]}</span></div>
+    <p class="coin-result ${coin.side} ${animate ? 'reveal' : ''}">${coinLabel(coin, actorName)}</p>`;
 }
 
-// Starts the tumble on dice rendered with animate = true.
-function runDice() {
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    document.querySelectorAll('.die[data-roll]').forEach((d) => {
-      d.style.transform = d.dataset.roll;
-      d.removeAttribute('data-roll');
-    });
-  }));
+// Spins coins rendered with animate = true: the face swaps while it squeezes, then it lands.
+function runCoins() {
+  document.querySelectorAll('.coin[data-flip]').forEach((c) => {
+    const side = c.dataset.flip;
+    c.removeAttribute('data-flip');
+    const face = c.querySelector('span');
+    let shown = 'act';
+    const show = (s) => {
+      shown = s;
+      face.innerHTML = COIN_FACE[s];
+      c.classList.toggle('act', s === 'act');
+      c.classList.toggle('draw', s === 'draw');
+    };
+    const loop = setInterval(() => show(shown === 'act' ? 'draw' : 'act'), 125);
+    setTimeout(() => {
+      clearInterval(loop);
+      show(side);
+      c.classList.remove('spinning');
+      c.classList.add('landed');
+    }, 1500);
+  });
 }
 
-function diceLabel(dice, actorName) {
-  return `${esc(actorName || 'You')} ${actorName ? 'has' : 'have'} to ${dice.style}!`;
+function coinLabel(coin, actorName) {
+  return `${esc(actorName || 'You')} ${actorName ? 'has' : 'have'} to ${coin.side}!`;
 }
 
-function diceStyleLine(dice, actorName) {
-  if (!dice) return '';
-  return `<p class="dice-result ${dice.style}">${diceLabel(dice, actorName)}</p>`;
+function coinStyleLine(coin, actorName) {
+  if (!coin) return '';
+  return `<p class="coin-result ${coin.side}">${coinLabel(coin, actorName)}</p>`;
 }
 
 // ---------- Leaderboard top 3 ----------

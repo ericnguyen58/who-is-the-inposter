@@ -10,7 +10,7 @@ let hideWord = false;
 let lastTeamPhase = null;
 let lastWord = null;
 let joinError = '';
-let showHelp = false;
+let panel = null; // which header panel is open: 'help' | 'board' | 'words'
 
 trackConnection(socket);
 
@@ -77,10 +77,18 @@ function render() {
 
   const pts = s.mode === 'teams' ? (s.team.myTeam ? s.team.myTeam.score : 0) : s.me.score;
   app.innerHTML = `<header class="me"><span>${esc(s.me.name)}</span>
-    <span>${pts} pts <button class="help-btn" data-help>${showHelp ? '&times;' : '?'}</button></span></header>
-    ${showHelp ? helpHtml(s.mode, false) : ''}${body}`;
+    <span>${pts} pts ${headerButtons(s)}</span></header>
+    ${panelHtml(s)}${body}`;
 
-  app.querySelector('[data-help]').onclick = () => { showHelp = !showHelp; render(); };
+  app.querySelectorAll('[data-panel]').forEach((b) => {
+    b.onclick = () => { panel = panel === b.dataset.panel ? null : b.dataset.panel; render(); };
+  });
+  app.querySelectorAll('[data-rename]').forEach((b) => {
+    b.onclick = () => {
+      const name = prompt('New team name (leave empty to use your names):', b.dataset.rename);
+      if (name !== null) send('team:rename', name);
+    };
+  });
   const card = app.querySelector('.word');
   if (card) card.onclick = () => { hideWord = !hideWord; render(); };
   app.querySelectorAll('[data-vote]').forEach((b) => {
@@ -115,9 +123,9 @@ function render() {
   app.querySelectorAll('[data-unword]').forEach((b) => { b.onclick = () => send('team:removeWord', b.dataset.unword); });
   app.querySelectorAll('.card.pickable').forEach((c) => { c.onclick = () => send('team:pickCard', c.dataset.card); });
   runFlips();
-  const rollBtn = app.querySelector('[data-roll]');
-  if (rollBtn) rollBtn.onclick = () => send('team:roll');
-  runDice();
+  const flipBtn = app.querySelector('[data-flip-coin]');
+  if (flipBtn) flipBtn.onclick = () => send('team:flip');
+  runCoins();
   const go = app.querySelector('[data-go]');
   if (go) go.onclick = () => send('team:go');
   app.querySelectorAll('[data-judge]').forEach((b) => {
@@ -135,11 +143,11 @@ function send(event, arg = null) {
 // Deck animation state (so cards deal / flip only once, not on every update).
 let phoneDealtKey = '';
 let phoneFlipped = null;
-let phoneDiceTurn = null;
+let phoneCoinTurn = null;
 
 function teamBody(t) {
   const scores = `<ol class="scores">${scoreRowsHtml(t.teams)}</ol>`;
-  const myTeam = `<p class="muted">${t.myTeam ? `Your team: ${esc(t.myTeam.name)} &middot; ` : ''}Round ${t.round} / ${t.settings.rounds}</p>`;
+  const myTeam = `<p class="muted">${t.myTeam ? `Your team: <b>${esc(t.myTeam.name)}</b> ${renameBtn(t.myTeam.name)} &middot; ` : ''}Round ${t.round} / ${t.settings.rounds}</p>`;
   if (t.phase === 'done') {
     return `<p class="big">Game over</p>${teamResultHtml(t.result)}
       <p class="big">Winner: <b>${t.winners.map(esc).join(', ') || '-'}</b></p>${scores}`;
@@ -166,15 +174,14 @@ function teamBody(t) {
   const progress = `Other teams are writing your word&hellip; ${turn.wordsIn} / ${turn.wordsNeeded}`;
   const rules = `<p>Act or draw it. Don't say it, don't point at it.</p>`;
 
-  // Dice: tumbles once per roll on every phone, then stays on its face.
-  const rolled = !!turn.dice;
-  let dice = '';
-  if (t.phase === 'rolling') dice = diceHtml(null);
-  if (t.phase === 'ready' && rolled) {
-    dice = diceHtml(turn.dice, turn.turnNo !== phoneDiceTurn, t.role === 'actor' ? null : turn.actorName);
-    phoneDiceTurn = turn.turnNo;
+  // Coin: spins once per flip on every phone, then stays on its side.
+  let coin = '';
+  if (t.phase === 'flipping') coin = coinHtml(null);
+  if (t.phase === 'ready' && turn.coin) {
+    coin = coinHtml(turn.coin, turn.turnNo !== phoneCoinTurn, t.role === 'actor' ? null : turn.actorName);
+    phoneCoinTurn = turn.turnNo;
   }
-  const style = t.phase === 'acting' ? diceStyleLine(turn.dice, t.role === 'actor' ? null : turn.actorName) : '';
+  const style = t.phase === 'acting' ? coinStyleLine(turn.coin, t.role === 'actor' ? null : turn.actorName) : '';
   const timesUp = `<p class="timer low">0s</p><p class="big">Time's up!</p>`;
   const waitJudge = `<p>Waiting for ${esc(turn.writerTeam || '')} to decide.</p>`;
 
@@ -189,23 +196,23 @@ function teamBody(t) {
           <p class="muted">Words from the other teams. Only you will see it.</p>`;
       }
       if (t.phase === 'writing') return `${myTeam}<p class="big">You act / draw this turn!</p><p>${progress}</p>`;
-      if (t.phase === 'rolling') {
+      if (t.phase === 'flipping') {
         let card = wordCard(t.word);
         if (turn.cardId) {
           const anim = turn.cardId !== phoneFlipped;
           phoneFlipped = turn.cardId;
           card = `<div class="cards single">${cardHtml(turn.cardId, `<span class="card-word">${esc(t.word)}</span>`, { cls: `big ${anim ? 'flip' : 'flipped'}` })}</div>`;
         }
-        return `${myTeam}${card}${dice}<p class="big">Act or draw? Roll the dice!</p><button data-roll>Roll the dice</button>`;
+        return `${myTeam}${card}${coin}<p class="big">Act or draw? Flip the coin!</p><button data-flip-coin>Flip the coin</button>`;
       }
-      if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${dice}<p>Wait for ${esc(turn.guesserName)} to start the timer.</p>`;
+      if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${coin}<p>Wait for ${esc(turn.guesserName)} to start the timer.</p>`;
       if (t.phase === 'judging') return `${timesUp}${wordCard(t.word)}${waitJudge}`;
       return `${timer}${style}${wordCard(t.word)}${rules}`;
     case 'guesser':
       if (t.phase === 'picking') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} is picking a card&hellip;</p>`;
       if (t.phase === 'writing') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} will act or draw. ${progress}</p>`;
-      if (t.phase === 'rolling') return `${myTeam}<p class="big">Get ready to guess!</p><p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
-      if (t.phase === 'ready') return `${myTeam}${dice}<p>Start the timer when ${esc(turn.actorName)} is ready.</p><button data-go>Start timer</button>`;
+      if (t.phase === 'flipping') return `${myTeam}<p class="big">Get ready to guess!</p><p>${esc(turn.actorName)} is flipping the coin&hellip;</p>${coin}`;
+      if (t.phase === 'ready') return `${myTeam}${coin}<p>Start the timer when ${esc(turn.actorName)} is ready.</p><button data-go>Start timer</button>`;
       if (t.phase === 'judging') return `${timesUp}${waitJudge}`;
       return `${timer}${style}<p class="big">Guess out loud!</p>`;
     case 'writer':
@@ -213,17 +220,17 @@ function teamBody(t) {
         <form id="wordForm"><input id="word" maxlength="30" autocomplete="off" placeholder="A word or short phrase" required><button type="submit">Submit</button></form>
         <p class="muted">${t.myTeamWord ? `Your team's word: <b>${esc(t.myTeamWord)}</b> (you can change it)` : 'One word per team. Any teammate can submit.'}</p>`;
     case 'judge':
-      if (t.phase === 'rolling') return `${myTeam}<p class="big">Your team's word was picked!</p>${wordCard(t.word)}<p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
-      if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${dice}<p>Waiting for ${esc(turn.guesserName)} to start the timer.</p>`;
+      if (t.phase === 'flipping') return `${myTeam}<p class="big">Your team's word was picked!</p>${wordCard(t.word)}<p>${esc(turn.actorName)} is flipping the coin&hellip;</p>${coin}`;
+      if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${coin}<p>Waiting for ${esc(turn.guesserName)} to start the timer.</p>`;
       return `${t.phase === 'judging' ? timesUp : `${timer}${style}`}${wordCard(t.word)}<p class="big">Did ${esc(turn.playingTeam)} guess it?</p>
         <div class="judge"><button class="ok" data-judge="1">Correct</button><button class="fail" data-judge="0">Fail</button></div>
         <p class="muted">${t.phase === 'judging'
           ? 'Correct if they got it in time, otherwise Fail.'
           : 'Tap Correct the moment they guess it. Fail = they broke the rules or gave up. You can also decide after the time is up.'}</p>`;
     default:
-      if (t.phase === 'rolling') return `${myTeam}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} is rolling the dice&hellip;</p>${dice}`;
+      if (t.phase === 'flipping') return `${myTeam}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} is flipping the coin&hellip;</p>${coin}`;
       if (t.phase === 'judging') return `${myTeam}${timesUp}${waitJudge}`;
-      return `${myTeam}${timer}${style}${dice}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} acts / draws.</p>`;
+      return `${myTeam}${timer}${style}${coin}<p class="big">${esc(turn.playingTeam)} is playing</p><p>${esc(turn.actorName)} acts / draws.</p>`;
   }
 }
 
@@ -282,4 +289,34 @@ function load(k) {
 }
 function save(k, v) {
   try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ }
+}
+
+// ---------- Header buttons: leaderboard, my words, help ----------
+
+function headerButtons(s) {
+  const btn = (id, icon, title) => `<button class="help-btn ${panel === id ? 'on' : ''}" data-panel="${id}" title="${title}">${panel === id ? '&times;' : icon}</button>`;
+  const words = s.mode === 'teams' && s.team.myTeam ? btn('words', '\u{1F4DD}', 'My words') : '';
+  return `${btn('board', '\u{1F3C6}', 'Leaderboard')}${words}${btn('help', '?', 'How to play')}`;
+}
+
+function renameBtn(current) {
+  return `<button class="rename-btn" data-rename="${esc(current)}" title="Rename team">&#9998;</button>`;
+}
+
+function panelHtml(s) {
+  if (panel === 'help') return helpHtml(s.mode, false);
+  if (panel === 'board') {
+    const list = s.mode === 'teams' ? s.team.teams : s.players;
+    const rows = list.length ? `<ol class="scores">${scoreRowsHtml(list)}</ol>` : '<p class="muted">No teams yet.</p>';
+    return `<div class="help"><h2>Leaderboard</h2>${rows}</div>`;
+  }
+  if (panel === 'words' && s.mode === 'teams' && s.team.myTeam) {
+    const list = s.team.myWordList;
+    const rows = list.length
+      ? `<ul class="my-words">${list.map((w) => `<li class="${w.used ? 'used' : ''}"><span>${esc(w.word)}</span>${w.used ? '<small>played</small>' : ''}</li>`).join('')}</ul>`
+      : '<p class="muted">Your team has not written any words yet.</p>';
+    return `<div class="help"><h2>${esc(s.team.myTeam.name)} ${renameBtn(s.team.myTeam.name)}</h2>
+      <p class="muted">Your team's words</p>${rows}</div>`;
+  }
+  return '';
 }
