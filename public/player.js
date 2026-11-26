@@ -77,8 +77,10 @@ function render() {
 
   const pts = s.mode === 'teams' ? (s.team.myTeam ? s.team.myTeam.score : 0) : s.me.score;
   app.innerHTML = `<header class="me"><span>${esc(s.me.name)}</span>
-    <span>${pts} pts ${headerButtons(s)}</span></header>
-    ${panelHtml(s)}${body}`;
+    <span>${pts} pts</span></header>
+    ${teamBadge(s)}${body}
+    ${panel ? `<div class="fab-panel">${panelHtml(s)}</div>` : ''}
+    <div class="fab">${headerButtons(s)}</div>`;
 
   app.querySelectorAll('[data-panel]').forEach((b) => {
     b.onclick = () => { panel = panel === b.dataset.panel ? null : b.dataset.panel; render(); };
@@ -147,7 +149,7 @@ let phoneCoinTurn = null;
 
 function teamBody(t) {
   const scores = `<ol class="scores">${scoreRowsHtml(t.teams)}</ol>`;
-  const myTeam = `<p class="muted">${t.myTeam ? `Your team: <b>${esc(t.myTeam.name)}</b> ${renameBtn(t.myTeam.name)} &middot; ` : ''}Round ${t.round} / ${t.settings.rounds}</p>`;
+  const myTeam = ''; // the team badge at the top of the page shows the team name and round
   if (t.phase === 'done') {
     return `<p class="big">Game over</p>${teamResultHtml(t.result)}
       <p class="big">Winner: <b>${t.winners.map(esc).join(', ') || '-'}</b></p>${scores}`;
@@ -291,7 +293,7 @@ function save(k, v) {
   try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ }
 }
 
-// ---------- Header buttons: leaderboard, my words, help ----------
+// ---------- Corner buttons (bottom right): leaderboard, my words, help ----------
 
 function headerButtons(s) {
   const btn = (id, icon, title) => `<button class="help-btn ${panel === id ? 'on' : ''}" data-panel="${id}" title="${title}">${panel === id ? '&times;' : icon}</button>`;
@@ -319,4 +321,16 @@ function panelHtml(s) {
       <p class="muted">Your team's words</p>${rows}</div>`;
   }
   return '';
+}
+
+// Act & Draw: big "your team" badge at the top of every screen once teams are made.
+function teamBadge(s) {
+  const t = s.mode === 'teams' ? s.team : null;
+  if (!t || t.phase === 'lobby' || !t.myTeam) return '';
+  return `<div class="team-badge">
+    <small>Your team</small>
+    <strong>${esc(t.myTeam.name)}</strong>
+    <button class="rename-btn" data-rename="${esc(t.myTeam.name)}">&#9998; Rename</button>
+    <span>Round ${t.round} / ${t.settings.rounds} &middot; ${t.myTeam.score} pt${t.myTeam.score === 1 ? '' : 's'}</span>
+  </div>`;
 }

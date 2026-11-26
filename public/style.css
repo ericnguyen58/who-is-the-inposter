@@ -426,3 +426,64 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
 }
 .my-words li.used span { text-decoration: line-through; color: var(--muted); }
 .my-words li small { color: var(--muted); }
+
+/* ---------- Phone corner buttons (bottom right) ---------- */
+
+.phone main { padding-bottom: 96px; } /* room so the buttons never cover content */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+}
+.fab .help-btn {
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  font-size: 1.3rem;
+  background: var(--panel);
+  border: 1px solid var(--gold);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.fab .help-btn.on { background: var(--accent); }
+.fab-panel {
+  position: fixed;
+  right: 16px;
+  left: 16px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 19;
+  max-width: 448px;
+  max-height: 60vh;
+  margin-left: auto;
+  overflow-y: auto;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+.fab-panel .help { margin: 0; background: var(--panel); border-color: var(--gold); }
+
+/* ---------- Act & Draw: your team badge (phones) ---------- */
+
+.team-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(196, 154, 74, 0.22), rgba(196, 154, 74, 0.05));
+  box-shadow: 0 0 16px rgba(196, 154, 74, 0.25);
+}
+.team-badge small { color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; }
+.team-badge strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.9rem;
+  line-height: 1.15;
+  color: var(--gold);
+  word-break: break-word;
+}
+.team-badge span { color: var(--muted); font-size: 0.85rem; }
+.team-badge .rename-btn { font-size: 0.85rem; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; }
