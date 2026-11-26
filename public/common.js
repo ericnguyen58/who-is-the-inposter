@@ -184,3 +184,28 @@ function diceStyleLine(dice) {
   if (!dice) return '';
   return `<p class="dice-result ${dice.style}">${dice.style === 'act' ? 'Act it out!' : 'Draw it!'}</p>`;
 }
+
+// ---------- Leaderboard top 3 ----------
+
+const MEDALS = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+
+// Ranks for a list sorted high to low; ties share a rank (5, 5, 3 -> 1, 1, 3).
+function scoreRanks(items) {
+  const scores = items.map((x) => x.score);
+  return scores.map((s) => scores.indexOf(s) + 1);
+}
+
+// Class and medal for a row: only ranks 1-3 with more than 0 points stand out.
+function podium(rank, score) {
+  if (score <= 0 || rank > 3) return { cls: '', medal: '' };
+  return { cls: `top${rank}`, medal: `<i class="medal">${MEDALS[rank - 1]}</i>` };
+}
+
+// <li> rows for a simple { name, score } leaderboard.
+function scoreRowsHtml(items) {
+  const ranks = scoreRanks(items);
+  return items.map((x, i) => {
+    const p = podium(ranks[i], x.score);
+    return `<li class="${p.cls}"><span>${p.medal}${esc(x.name)}</span><b>${x.score}</b></li>`;
+  }).join('');
+}

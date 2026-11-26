@@ -133,7 +133,7 @@ let phoneFlipped = null;
 let phoneDiceTurn = null;
 
 function teamBody(t) {
-  const scores = `<ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>`;
+  const scores = `<ol class="scores">${scoreRowsHtml(t.teams)}</ol>`;
   const myTeam = `<p class="muted">${t.myTeam ? `Your team: ${esc(t.myTeam.name)} &middot; ` : ''}Round ${t.round} / ${t.settings.rounds}</p>`;
   if (t.phase === 'done') {
     return `<p class="big">Game over</p>${teamResultHtml(t.result)}
@@ -263,7 +263,7 @@ function renderJoin() {
 }
 
 const namesList = (players) => `<ul class="names">${players.map((p) => `<li>${esc(p.name)}</li>`).join('')}</ul>`;
-const scoreList = (players) => `<ol class="scores">${players.map((p) => `<li><span>${esc(p.name)}</span><b>${p.score}</b></li>`).join('')}</ol>`;
+const scoreList = (players) => `<ol class="scores">${scoreRowsHtml(players)}</ol>`;
 
 function load(k) {
   try { return localStorage.getItem(k); } catch { return null; }

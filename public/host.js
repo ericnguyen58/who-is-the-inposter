@@ -72,7 +72,7 @@ function render() {
     <section class="stage">${b.canSwitch ? modeSwitch(b) : ''}${teams ? teamStage(b.team, b.players.length) : stage(b)}</section>
     <section class="scoreboard">${teams ? teamScoreboard(b) : `
       <h2>Scores</h2>
-      <ol class="scores">${b.players.map(row).join('')}</ol>`}
+      <ol class="scores">${(() => { const r = scoreRanks(b.players); return b.players.map((p, i) => row(p, r[i])).join(''); })()}</ol>`}
     </section>`;
 
   app.querySelectorAll('[data-act]').forEach((el) => { el.onclick = () => act(el.dataset.act); });
@@ -268,7 +268,7 @@ function imposterSettingsHtml(s) {
 function teamScoreboard(b) {
   const t = b.team;
   const teams = t.teams.length
-    ? `<h2>Teams</h2><ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
+    ? `<h2>Teams</h2><ol class="scores">${scoreRowsHtml(t.teams)}</ol>
        <p class="muted">Round ${t.round} / ${t.settings.rounds} &middot; most points wins</p>`
     : '';
   const players = b.players.map((p) => `<li class="${p.connected || p.bot ? '' : 'away'}">
@@ -317,10 +317,11 @@ function stage(b) {
   }
 }
 
-function row(p) {
+function row(p, rank) {
+  const top = podium(rank, p.score);
   const status = board.phase === 'voting' && p.inGame ? (p.voted ? ' <span class="good">voted</span>' : '') : '';
-  return `<li class="${p.connected || p.bot ? '' : 'away'}">
-    <span>${esc(p.name)}${status}</span>
+  return `<li class="${p.connected || p.bot ? '' : 'away'} ${top.cls}">
+    <span>${top.medal}${esc(p.name)}${status}</span>
     <b>${p.score}</b>
     <button class="kick" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" title="Remove">&times;</button>
   </li>`;

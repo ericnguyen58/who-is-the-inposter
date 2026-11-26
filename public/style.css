@@ -393,3 +393,26 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
   70% { transform: scale(1.12); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* ---------- Leaderboard top 3 ---------- */
+
+.medal { font-style: normal; margin-right: 8px; font-size: 1.15em; }
+.scores li.top1, .scores li.top2, .scores li.top3 { font-weight: 700; transition: transform 0.3s; }
+.scores li.top1 {
+  border: 2px solid var(--gold);
+  background: linear-gradient(90deg, rgba(196, 154, 74, 0.32), rgba(196, 154, 74, 0.06));
+  box-shadow: 0 0 14px rgba(196, 154, 74, 0.35);
+  transform: scale(1.04);
+  font-size: 1.08em;
+}
+.scores li.top2 {
+  border: 2px solid #b8b2a6;
+  background: linear-gradient(90deg, rgba(184, 178, 166, 0.24), rgba(184, 178, 166, 0.04));
+}
+.scores li.top3 {
+  border: 2px solid #b0703f;
+  background: linear-gradient(90deg, rgba(176, 112, 63, 0.26), rgba(176, 112, 63, 0.04));
+}
+.scores li.top1 b { color: var(--gold); font-size: 1.2em; }
+.scores li.top2 b { color: #d6d0c4; }
+.scores li.top3 b { color: #d08a55; }
