@@ -23,6 +23,7 @@ const VoteMusic = (() => {
   let step = 0;
   let nextTime = 0;
   let muted = load();
+  let custom = null; // { url, audio } when the host has their own music file
 
   const hz = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
 
@@ -92,10 +93,28 @@ const VoteMusic = (() => {
     if (LEAD[bar][s]) tone(hz(LEAD[bar][s]), t, STEP * 1.6, 'triangle', 0.14);
   }
 
+  // Use the host's own file (url) instead of the built-in loop, or null for built-in.
+  function setCustom(url) {
+    if ((custom && custom.url) === url) return;
+    if (custom) custom.audio.pause();
+    custom = url ? { url, audio: new Audio(url) } : null;
+    if (custom) {
+      custom.audio.preload = 'auto';
+      custom.audio.volume = 0.8;
+    }
+  }
+
   function start() {
     stop();
     unlock();
-    if (muted || !ctx) return;
+    if (muted) return;
+    if (custom) {
+      // Always from the start of the track; stop() cuts it when the vote ends.
+      custom.audio.currentTime = 0;
+      custom.audio.play().catch(() => { /* blocked until the page is clicked once */ });
+      return;
+    }
+    if (!ctx) return;
     step = 0;
     nextTime = ctx.currentTime + 0.05;
     loop = setInterval(() => {
@@ -110,6 +129,7 @@ const VoteMusic = (() => {
   function stop() {
     clearInterval(loop);
     loop = null;
+    if (custom) custom.audio.pause();
   }
 
   // Short rising chord when the vote closes.
@@ -129,5 +149,5 @@ const VoteMusic = (() => {
     try { return localStorage.getItem('muted') === '1'; } catch { return false; }
   }
 
-  return { unlock, start, stop, sting, setMuted, isMuted: () => muted };
+  return { unlock, start, stop, sting, setMuted, setCustom, isMuted: () => muted };
 })();

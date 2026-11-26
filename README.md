@@ -94,6 +94,14 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 - **Help:** tap **How to play** on the scoreboard, or **?** on a phone, for the rules of the current mode.
 - **Sound:** tap **Sound: on / off** on the scoreboard. Click anywhere on the scoreboard once after opening it so the browser allows sound.
 
+### Use your own vote music (optional)
+
+1. Put an audio file in the `custom-music` folder (inside the game folder on the laptop) and name it `vote.mp3`. `vote.m4a`, `vote.ogg` and `vote.wav` also work.
+2. Start the game as usual. The terminal shows `Vote music: custom-music/vote.mp3`. If the game is already running, the file is picked up the next time the scoreboard updates (for example when a player joins).
+3. During each vote the scoreboard plays your file from the start and cuts it when the vote closes (10 seconds). Without a file, the built-in music plays.
+
+The `custom-music` folder is ignored by git, so your file stays on your laptop and is never pushed to GitHub. Only use music you have the right to play.
+
 ### Stop
 
 Press `Ctrl + C` in the terminal. Scores are not saved: restarting gives a new room code and empty scores.

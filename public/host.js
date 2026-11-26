@@ -14,6 +14,7 @@ socket.on('connect', () => {
 });
 
 socket.on('board', (b) => {
+  VoteMusic.setCustom(b.customMusic ? `/custom-music/vote?v=${b.customMusic.version}` : null);
   // Music plays while an Imposter vote is open.
   const voting = b.mode === 'imposter' && b.phase === 'voting';
   const wasVoting = !!board && board.mode === 'imposter' && board.phase === 'voting';
@@ -98,12 +99,16 @@ let musicTestEnd = null;
 let musicTestLoop = null;
 
 function testPanelHtml() {
+  const source = board && board.customMusic
+    ? `Music: your file (custom-music/${esc(board.customMusic.name)})`
+    : 'Music: built-in';
   const label = VoteMusic.isMuted()
     ? 'Sound is off'
     : musicTestEnd ? `Stop music (${Math.max(0, Math.ceil((musicTestEnd - Date.now()) / 1000))}s)` : 'Play vote music (10s)';
   return `<div class="help test-panel">
     <h2>Testing</h2>
     <button data-music-test ${VoteMusic.isMuted() ? 'disabled' : ''}>${label}</button>
+    <p class="muted">${source}</p>
     <p class="muted">Test words are on (easy pairs like Red / Blue).<br>Cmd/Ctrl + Shift + B removes the bots.</p>
   </div>`;
 }

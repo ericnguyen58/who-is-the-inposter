@@ -32,8 +32,30 @@ let qr = '';
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
 const ROUTES = { '/': 'player.html', '/host': 'host.html' };
 
+// Optional vote music from the host's own file: custom-music/vote.mp3 (or .m4a/.ogg/.wav).
+// The folder is git-ignored, so the file stays on the laptop.
+const MUSIC_DIR = path.join(__dirname, 'custom-music');
+const MUSIC_TYPES = { '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
+
+function findCustomMusic() {
+  for (const ext of Object.keys(MUSIC_TYPES)) {
+    const file = path.join(MUSIC_DIR, 'vote' + ext);
+    try {
+      const stat = fs.statSync(file);
+      if (stat.isFile()) return { file, ext, version: Math.floor(stat.mtimeMs) };
+    } catch { /* not there */ }
+  }
+  return null;
+}
+
 const server = http.createServer((req, res) => {
   const urlPath = new URL(req.url, 'http://x').pathname;
+  if (urlPath === '/custom-music/vote') {
+    const music = findCustomMusic();
+    if (!music) return send404(res);
+    res.writeHead(200, { 'Content-Type': MUSIC_TYPES[music.ext], 'Cache-Control': 'no-cache' });
+    return fs.createReadStream(music.file).pipe(res);
+  }
   const file = path.join(PUBLIC_DIR, ROUTES[urlPath] || urlPath);
   if (!file.startsWith(PUBLIC_DIR + path.sep)) return send404(res);
   fs.readFile(file, (err, data) => {
@@ -232,6 +254,11 @@ function armVoteTimer(ms) {
   }, ms);
 }
 
+function customMusicInfo() {
+  const m = findCustomMusic();
+  return m ? { name: 'vote' + m.ext, version: m.version } : null;
+}
+
 function reply(ack, msg) {
   if (typeof ack === 'function') ack(msg);
 }
@@ -249,6 +276,7 @@ function broadcast() {
     mode,
     canSwitch: canSwitchMode(),
     testing: bots.size > 0,
+    customMusic: customMusicInfo(),
     team: teamGame.boardView(now),
   });
   for (const id of game.players.keys()) {
@@ -281,6 +309,8 @@ QRCode.toDataURL(JOIN_URL, { margin: 1, width: 360 }).then((url) => {
     console.log(`  Scoreboard (open on this laptop): http://localhost:${PORT}/host`);
     console.log(`  Players join at:                  ${JOIN_URL}`);
     console.log(`  Room code:                        ${CODE}\n`);
-    console.log('  Wrong IP in the link? Restart with HOST_IP=<your Wi-Fi IP> npm start\n');
+    console.log('  Wrong IP in the link? Restart with HOST_IP=<your Wi-Fi IP> npm start');
+    const music = findCustomMusic();
+    console.log(music ? `  Vote music: custom-music/vote${music.ext}\n` : '  Vote music: built-in\n');
   });
 });
