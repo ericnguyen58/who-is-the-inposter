@@ -5,7 +5,7 @@
 // every other team writes a word, one is picked at random, the actor acts or draws it,
 // the teammate guesses out loud. The team that wrote the word confirms.
 // Correct -> playing team +1. Fail or time up -> the team that wrote the word +1.
-// First team to reach the target score wins.
+// A round = every team plays one turn. After the last round, the team with the most points wins.
 
 const MIN_PLAYERS = 4;
 const TURN_PHASES = ['writing', 'ready', 'acting'];
@@ -15,10 +15,12 @@ class TeamGame {
     this.players = players; // shared Map id -> { name }, owned by the imposter Game
     this.rng = rng;
     this.phase = 'lobby'; // lobby -> writing -> ready -> acting -> turnResult -> writing ... -> done
-    this.settings = { seconds: 60, target: 5 };
+    this.settings = { seconds: 60, rounds: 3 };
     this.teams = []; // { id, members: [playerId], score, actorIdx }
     this.turnIdx = 0;
     this.turnNo = 0;
+    this.round = 1;
+    this.playedThisRound = new Set(); // team ids that have played this round
     this.turn = null;
     this.nextTeamId = 1;
   }
@@ -29,10 +31,10 @@ class TeamGame {
 
   // ---------- host actions ----------
 
-  setSettings({ seconds, target } = {}) {
+  setSettings({ seconds, rounds } = {}) {
     if (this.phase === 'acting') throw new Error('Wait until the turn is over');
     if (seconds !== undefined) this.settings.seconds = clamp(Math.round(Number(seconds)), 10, 600);
-    if (target !== undefined) this.settings.target = clamp(Math.round(Number(target)), 1, 50);
+    if (rounds !== undefined) this.settings.rounds = clamp(Math.round(Number(rounds)), 1, 20);
   }
 
   start() {
@@ -43,6 +45,8 @@ class TeamGame {
     for (let i = 0; i + 1 < ids.length; i += 2) this.newTeam([ids[i], ids[i + 1]]);
     if (ids.length % 2) this.teams[this.teams.length - 1].members.push(ids[ids.length - 1]);
     this.turnIdx = 0;
+    this.round = 1;
+    this.playedThisRound.clear();
     this.startTurn();
   }
 
@@ -185,7 +189,16 @@ class TeamGame {
     if (team) team.score += 1;
     t.result = { outcome, pointTo: team ? team.id : null };
     t.endsAt = null;
-    this.phase = this.teams.some((x) => x.score >= this.settings.target) ? 'done' : 'turnResult';
+    this.playedThisRound.add(t.teamId);
+    this.phase = 'turnResult';
+    // Round over when every team has played; the game ends after the last round.
+    if (this.teams.every((x) => this.playedThisRound.has(x.id))) {
+      if (this.round >= this.settings.rounds) this.phase = 'done';
+      else {
+        this.round += 1;
+        this.playedThisRound.clear();
+      }
+    }
   }
 
   // ---------- views ----------
@@ -244,6 +257,7 @@ class TeamGame {
       phase: this.phase,
       minPlayers: MIN_PLAYERS,
       settings: { ...this.settings },
+      round: this.round,
       teams: this.teamsView(),
       turn: this.turnView(now),
       result: this.resultView(),
@@ -257,6 +271,7 @@ class TeamGame {
     const view = {
       phase: this.phase,
       settings: { ...this.settings },
+      round: this.round,
       myTeam: team ? { name: this.teamName(team), score: team.score } : null,
       role: null, // actor | guesser | writer | judge | watcher
       word: null,

@@ -55,7 +55,7 @@ function render() {
   } else if (s.phase === 'lobby') {
     body = `<p class="big">You're in!</p><p>Waiting for the host to start.</p>${namesList(s.players)}`;
   } else if (s.phase === 'done') {
-    body = `<p class="big">Rotation complete</p><p>Everyone has been the imposter once.</p>${scoreList(s.players)}`;
+    body = `<p class="big">All games played</p><p>Final scores:</p>${scoreList(s.players)}`;
   } else if (s.phase === 'result') {
     body = `${resultHtml(s.result)}<p class="muted">Waiting for the next game…</p>`;
   } else if (!s.inGame) {
@@ -113,7 +113,7 @@ function send(event, arg = null) {
 
 function teamBody(t) {
   const scores = `<ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>`;
-  const myTeam = t.myTeam ? `<p class="muted">Your team: ${esc(t.myTeam.name)}</p>` : '';
+  const myTeam = `<p class="muted">${t.myTeam ? `Your team: ${esc(t.myTeam.name)} &middot; ` : ''}Round ${t.round} / ${t.settings.rounds}</p>`;
   if (t.phase === 'done') {
     return `<p class="big">Game over</p>${teamResultHtml(t.result)}
       <p class="big">Winner: <b>${t.winners.map(esc).join(', ') || '-'}</b></p>${scores}`;
