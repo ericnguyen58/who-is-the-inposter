@@ -32,14 +32,14 @@ let qr = '';
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
 const ROUTES = { '/': 'player.html', '/host': 'host.html' };
 
-// Optional vote music from the host's own file: custom-music/vote.mp3 (or .m4a/.ogg/.wav).
-// The folder is git-ignored, so the file stays on the laptop.
+// Optional music from the host's own files: custom-music/vote.mp3 and custom-music/lobby.mp3
+// (or .m4a/.ogg/.wav). The folder is git-ignored, so the files stay on the laptop.
 const MUSIC_DIR = path.join(__dirname, 'custom-music');
 const MUSIC_TYPES = { '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
 
-function findCustomMusic() {
+function findCustomMusic(name) {
   for (const ext of Object.keys(MUSIC_TYPES)) {
-    const file = path.join(MUSIC_DIR, 'vote' + ext);
+    const file = path.join(MUSIC_DIR, name + ext);
     try {
       const stat = fs.statSync(file);
       if (stat.isFile()) return { file, ext, version: Math.floor(stat.mtimeMs) };
@@ -50,8 +50,9 @@ function findCustomMusic() {
 
 const server = http.createServer((req, res) => {
   const urlPath = new URL(req.url, 'http://x').pathname;
-  if (urlPath === '/custom-music/vote') {
-    const music = findCustomMusic();
+  const musicMatch = urlPath.match(/^\/custom-music\/(vote|lobby)$/);
+  if (musicMatch) {
+    const music = findCustomMusic(musicMatch[1]);
     if (!music) return send404(res);
     res.writeHead(200, { 'Content-Type': MUSIC_TYPES[music.ext], 'Cache-Control': 'no-cache' });
     return fs.createReadStream(music.file).pipe(res);
@@ -255,8 +256,11 @@ function armVoteTimer(ms) {
 }
 
 function customMusicInfo() {
-  const m = findCustomMusic();
-  return m ? { name: 'vote' + m.ext, version: m.version } : null;
+  const info = (name) => {
+    const m = findCustomMusic(name);
+    return m ? { name: name + m.ext, version: m.version } : null;
+  };
+  return { vote: info('vote'), lobby: info('lobby') };
 }
 
 function reply(ack, msg) {
@@ -310,7 +314,9 @@ QRCode.toDataURL(JOIN_URL, { margin: 1, width: 360 }).then((url) => {
     console.log(`  Players join at:                  ${JOIN_URL}`);
     console.log(`  Room code:                        ${CODE}\n`);
     console.log('  Wrong IP in the link? Restart with HOST_IP=<your Wi-Fi IP> npm start');
-    const music = findCustomMusic();
-    console.log(music ? `  Vote music: custom-music/vote${music.ext}\n` : '  Vote music: built-in\n');
+    const vote = findCustomMusic('vote');
+    const lobby = findCustomMusic('lobby');
+    console.log(vote ? `  Vote music: custom-music/vote${vote.ext}` : '  Vote music: built-in');
+    console.log(lobby ? `  Lobby music: custom-music/lobby${lobby.ext}\n` : '  Lobby music: none\n');
   });
 });

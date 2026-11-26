@@ -14,7 +14,9 @@ socket.on('connect', () => {
 });
 
 socket.on('board', (b) => {
-  VoteMusic.setCustom(b.customMusic ? `/custom-music/vote?v=${b.customMusic.version}` : null);
+  const cm = b.customMusic || {};
+  VoteMusic.setCustom(cm.vote ? `/custom-music/vote?v=${cm.vote.version}` : null);
+  LobbyMusic.setSource(cm.lobby ? `/custom-music/lobby?v=${cm.lobby.version}` : null);
   // Music plays while an Imposter vote is open.
   const voting = b.mode === 'imposter' && b.phase === 'voting';
   const wasVoting = !!board && board.mode === 'imposter' && board.phase === 'voting';
@@ -37,7 +39,10 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Browsers only allow sound after a click on the page.
-document.addEventListener('click', () => VoteMusic.unlock(), true);
+document.addEventListener('click', () => {
+  VoteMusic.unlock();
+  LobbyMusic.retry();
+}, true);
 
 function act(event, arg = null) {
   socket.emit(event, arg, (res) => { if (!res.ok) alert(res.error); });
@@ -91,6 +96,9 @@ function render() {
     el.onclick = () => { if (confirm(`Remove ${el.dataset.name}?`)) act('host:kick', el.dataset.kick); };
   });
   startCountdown(teams ? b.team.turn && b.team.turn.timerMs : b.voteTimerMs, teams ? 10 : 3);
+  // Lobby music loops on the lobby screen until a game starts (paused during the music test).
+  const inLobby = (teams ? b.team.phase : b.phase) === 'lobby';
+  LobbyMusic.set(inLobby && !musicTestEnd);
 }
 
 // ---------- Testing panel (shown while test bots are on) ----------
@@ -99,9 +107,9 @@ let musicTestEnd = null;
 let musicTestLoop = null;
 
 function testPanelHtml() {
-  const source = board && board.customMusic
-    ? `Music: your file (custom-music/${esc(board.customMusic.name)})`
-    : 'Music: built-in';
+  const cm = (board && board.customMusic) || {};
+  const source = `Vote music: ${cm.vote ? `your file (${esc(cm.vote.name)})` : 'built-in'}<br>
+    Lobby music: ${cm.lobby ? `your file (${esc(cm.lobby.name)})` : 'none'}`;
   const label = VoteMusic.isMuted()
     ? 'Sound is off'
     : musicTestEnd ? `Stop music (${Math.max(0, Math.ceil((musicTestEnd - Date.now()) / 1000))}s)` : 'Play vote music (10s)';

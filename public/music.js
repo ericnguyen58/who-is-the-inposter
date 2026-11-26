@@ -151,3 +151,40 @@ const VoteMusic = (() => {
 
   return { unlock, start, stop, sting, setMuted, setCustom, isMuted: () => muted };
 })();
+
+// The host's own lobby music (custom-music/lobby.mp3), looped on the lobby screen until a game starts.
+const LobbyMusic = (() => {
+  let url = null;
+  let audio = null;
+  let on = false;
+
+  function setSource(u) {
+    if (u === url) return;
+    if (audio) audio.pause();
+    url = u;
+    audio = u ? new Audio(u) : null;
+    if (audio) {
+      audio.loop = true;
+      audio.volume = 0.6;
+    }
+    set(on);
+  }
+
+  // on = should be playing now. Turning off rewinds, so it starts over next time.
+  function set(shouldPlay) {
+    on = shouldPlay && !VoteMusic.isMuted();
+    if (!audio) return;
+    if (on && audio.paused) audio.play().catch(() => { /* blocked until the page is clicked once */ });
+    if (!on && !audio.paused) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }
+
+  // Browsers block sound until the page is clicked: try again after a click.
+  function retry() {
+    if (on && audio && audio.paused) audio.play().catch(() => {});
+  }
+
+  return { setSource, set, retry };
+})();
