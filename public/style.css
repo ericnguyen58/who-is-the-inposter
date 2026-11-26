@@ -462,3 +462,28 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
 }
 .fab-panel .help { margin: 0; background: var(--panel); border-color: var(--gold); }
+
+/* ---------- Act & Draw: your team badge (phones) ---------- */
+
+.team-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(196, 154, 74, 0.22), rgba(196, 154, 74, 0.05));
+  box-shadow: 0 0 16px rgba(196, 154, 74, 0.25);
+}
+.team-badge small { color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; }
+.team-badge strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.9rem;
+  line-height: 1.15;
+  color: var(--gold);
+  word-break: break-word;
+}
+.team-badge span { color: var(--muted); font-size: 0.85rem; }
+.team-badge .rename-btn { font-size: 0.85rem; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; }
