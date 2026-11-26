@@ -21,6 +21,9 @@ const teamGame = new TeamGame({ players: game.players }); // Act & Draw mode
 let mode = 'imposter'; // 'imposter' | 'teams'
 let turnTimer = null;
 let voteTimer = null;
+const bots = new Set(); // ids of test bots (dev shortcut)
+const BOT_NAMES = ['Acorn', 'Maple', 'Pumpkin', 'Cranberry', 'Gravy', 'Biscuit', 'Pecan', 'Cider', 'Hazel', 'Nutmeg',
+  'Clove', 'Squash', 'Yam', 'Butter', 'Sage', 'Walnut', 'Honey', 'Ginger', 'Turnip', 'Barley'];
 const socketCount = new Map(); // playerId -> number of open sockets
 let qr = '';
 
@@ -138,9 +141,24 @@ io.on('connection', (socket) => {
     'team:hostGo': teamsOnly(() => armTimer(teamGame.startTimer(null))),
     'team:next': teamsOnly(() => teamGame.next()),
     'team:lobby': teamsOnly(() => teamGame.toLobby()),
+    // Dev shortcut: adds 10 idle bots, or removes them all if there are any.
+    'host:bots': () => {
+      if (bots.size) {
+        for (const id of [...bots]) removePlayer(id);
+        return;
+      }
+      const taken = new Set([...game.players.values()].map((p) => p.name.toLowerCase()));
+      const names = BOT_NAMES.filter((n) => !taken.has(('bot ' + n).toLowerCase()));
+      for (let i = 0; i < 10 && names.length; i++) {
+        const [name] = names.splice(crypto.randomInt(names.length), 1);
+        const id = 'bot-' + crypto.randomUUID();
+        game.addPlayer(id, 'Bot ' + name);
+        teamGame.addPlayer(id);
+        bots.add(id);
+      }
+    },
     'host:kick': (id) => {
-      teamGame.removePlayer(id);
-      game.removePlayer(id);
+      removePlayer(id);
       io.to('p:' + id).emit('kicked');
       io.in('p:' + id).socketsLeave('p:' + id);
       socketCount.delete(id);
@@ -165,6 +183,12 @@ io.on('connection', (socket) => {
     broadcast();
   });
 });
+
+function removePlayer(id) {
+  teamGame.removePlayer(id);
+  game.removePlayer(id);
+  bots.delete(id);
+}
 
 function leave(socket) {
   const id = socket.data.playerId;
@@ -205,8 +229,10 @@ function reply(ack, msg) {
 function broadcast() {
   const connected = new Set(socketCount.keys());
   const now = Date.now();
+  const board = game.boardView(connected, now);
+  board.players = board.players.map((p) => ({ ...p, bot: bots.has(p.id) }));
   io.to('host').emit('board', {
-    ...game.boardView(connected, now),
+    ...board,
     code: CODE,
     joinUrl: JOIN_URL,
     qr,

@@ -26,6 +26,15 @@ socket.on('board', (b) => {
   render();
 });
 
+// Secret dev shortcut: Cmd + Shift + B (Mac) / Ctrl + Shift + B (Windows)
+// adds 10 idle bots for testing. Press again to remove them.
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    act('host:bots');
+  }
+});
+
 // Browsers only allow sound after a click on the page.
 document.addEventListener('click', () => VoteMusic.unlock(), true);
 
@@ -135,7 +144,7 @@ function teamScoreboard(b) {
     ? `<h2>Teams</h2><ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
        <p class="muted">First to ${t.settings.target} wins</p>`
     : '';
-  const players = b.players.map((p) => `<li class="${p.connected ? '' : 'away'}">
+  const players = b.players.map((p) => `<li class="${p.connected || p.bot ? '' : 'away'}">
       <span>${esc(p.name)}</span>
       <button class="kick" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" title="Remove">&times;</button>
     </li>`).join('');
@@ -180,7 +189,7 @@ function stage(b) {
 
 function row(p) {
   const status = board.phase === 'voting' && p.inGame ? (p.voted ? ' <span class="good">voted</span>' : '') : '';
-  return `<li class="${p.connected ? '' : 'away'}">
+  return `<li class="${p.connected || p.bot ? '' : 'away'}">
     <span>${esc(p.name)}${p.wasImposter ? ' &#10003;' : ''}${status}</span>
     <b>${p.score}</b>
     <button class="kick" data-kick="${esc(p.id)}" data-name="${esc(p.name)}" title="Remove">&times;</button>
