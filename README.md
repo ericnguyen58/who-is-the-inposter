@@ -19,7 +19,7 @@ npm start
 ## Rules
 
 - Each game, one player is the imposter. Everyone gets the same word except the imposter, who gets a different one (e.g. Bear vs Fish). Nobody is told who the imposter is.
-- Each round, everyone says one clue about their word out loud. The host then starts the vote.
+- Each round, everyone says one clue about their word out loud. The host then starts the vote. Voting lasts **10 seconds** (game-show music plays on the laptop).
 - Vote result:
   - Imposter gets the most votes: **caught**. Every other player gets **+1**.
   - Someone else gets the most votes: **imposter wins** right away.
@@ -66,8 +66,9 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 
 1. Tap **Start game**. Each phone shows a word.
 2. Everyone says one clue about their word out loud.
-3. Tap **Start vote**. Everyone votes on their phone for a player or **Skip**.
-4. The vote closes when everyone has voted. To close it early (for example if someone's phone is off), tap **Close vote now**.
+3. Tap **Start vote**. Music plays on the laptop and everyone votes on their phone for a player or **Skip**.
+4. The vote closes after **10 seconds**, or sooner if everyone has voted. Votes already in are counted. **Close vote now** ends it immediately.
+   - The result shows a vote leaderboard when votes went to more than one choice. If every vote went to one choice, it shows only who was voted out.
 5. If nobody is out, the next round starts: go back to step 2.
 6. When the game ends, the scoreboard shows the imposter, both words and the scores. Tap **Next game**.
 7. After everyone has been the imposter once, tap **Show final scores**. Tap **New rotation** to play again.
@@ -89,6 +90,7 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 - **New player joins mid-game:** in Imposter mode they play from the next game. In Act & Draw they're added to the smallest team.
 - **Switch modes:** only possible when no game is running (lobby, or after a game ends).
 - **Help:** tap **How to play** on the scoreboard, or **?** on a phone, for the rules of the current mode.
+- **Sound:** tap **Sound: on / off** on the scoreboard. Click anywhere on the scoreboard once after opening it so the browser allows sound.
 
 ### Stop
 

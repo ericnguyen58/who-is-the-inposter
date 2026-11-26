@@ -150,3 +150,21 @@ test('names must be unique and start needs 3 players', () => {
   g.start();
   assert.strictEqual(g.phase, 'clues');
 });
+
+test('vote lasts 10 seconds; only the current vote timer closes it', () => {
+  const g = setup(4);
+  g.start();
+  const ms = g.startVote(1000);
+  assert.strictEqual(ms, 10000);
+  assert.strictEqual(g.boardView(new Set(), 4000).voteTimerMs, 7000);
+  const first = g.voteNo;
+  const imp = g.current.imposterId;
+  const [a, b] = crew(g);
+  g.vote(a, imp);
+  g.vote(b, imp); // 2 of 4 voted when time runs out
+  g.voteTimeUp(first - 1); // stale timer: ignored
+  assert.strictEqual(g.phase, 'voting');
+  g.voteTimeUp(first);
+  assert.strictEqual(g.current.result.winner, 'crew', 'votes already in are counted');
+  assert.strictEqual(g.boardView().voteTimerMs, null);
+});

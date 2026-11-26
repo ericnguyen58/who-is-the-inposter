@@ -60,11 +60,14 @@ function render() {
     body = `${resultHtml(s.result)}<p class="muted">Waiting for the next game…</p>`;
   } else if (!s.inGame) {
     body = `<p class="big">Game in progress</p><p>You'll play from the next game.</p>`;
+  } else if (s.phase === 'voting') {
+    body = `<p class="round">Round ${s.round} / ${s.maxRounds} &middot; Your word: <b>${hideWord ? '&bull;&bull;&bull;' : esc(s.word)}</b></p>
+      ${voteHtml(s)}`;
   } else {
     body = `<p class="round">Round ${s.round} / ${s.maxRounds}</p>
       ${wordCard(s.word)}
       ${roundNoteHtml(s.roundNote)}
-      ${s.phase === 'clues' ? '<p>Say one thing about your word. The host starts the vote.</p>' : voteHtml(s)}`;
+      <p>Say one thing about your word. The host starts the vote.</p>`;
   }
 
   const pts = s.mode === 'teams' ? (s.team.myTeam ? s.team.myTeam.score : 0) : s.me.score;
@@ -99,7 +102,7 @@ function render() {
   app.querySelectorAll('[data-judge]').forEach((b) => {
     b.onclick = () => send('team:judge', b.dataset.judge === '1');
   });
-  startCountdown(s.mode === 'teams' && s.team.turn ? s.team.turn.timerMs : null);
+  startCountdown(s.mode === 'teams' ? (s.team.turn ? s.team.turn.timerMs : null) : s.voteTimerMs, s.mode === 'teams' ? 10 : 3);
 }
 
 function send(event, arg = null) {
@@ -150,11 +153,18 @@ function wordCard(word) {
   return `<button class="word">${hideWord ? 'Tap to show your word' : esc(word)}<small>${hideWord ? '' : 'tap to hide'}</small></button>`;
 }
 
+// Game-show vote screen: one big colored tile per player, plus Skip.
+const TILE_ICONS = ['\u{1F341}', '\u{1F383}', '\u{1F33D}', '\u{1F967}', '\u{1F983}', '\u{1F330}', '\u{1F34E}', '\u{1F342}'];
+
 function voteHtml(s) {
-  const btn = (id, label) => `<button data-vote="${esc(id)}" class="${s.myVote === id ? 'picked' : ''}">${esc(label)}</button>`;
-  return `<p class="big">Who is the imposter?</p>
-    <div class="votes">${s.options.map((o) => btn(o.id, o.name)).join('')}${btn('skip', 'Skip')}</div>
-    <p class="muted">${s.myVote ? 'Vote sent. You can change it until voting closes.' : 'Tap a name.'}</p>`;
+  const state = (id) => (s.myVote === id ? 'picked' : s.myVote ? 'dim' : '');
+  const tiles = s.options.map((o, i) => `<button data-vote="${esc(o.id)}" class="tile t${i % 8} ${state(o.id)}">
+      <span class="icon">${TILE_ICONS[i % TILE_ICONS.length]}</span><span>${esc(o.name)}</span>
+    </button>`).join('');
+  return `<div class="vote-head"><span class="timer ring"></span><p class="big">Who is the imposter?</p></div>
+    <div class="tiles">${tiles}</div>
+    <button data-vote="skip" class="tile skip ${state('skip')}">Skip</button>
+    <p class="muted">${s.myVote ? 'Vote locked in. Tap another tile to change it.' : 'Tap a tile before time runs out!'}</p>`;
 }
 
 function renderJoin() {

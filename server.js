@@ -20,6 +20,7 @@ const game = new Game(); // imposter mode; also holds the player list
 const teamGame = new TeamGame({ players: game.players }); // Act & Draw mode
 let mode = 'imposter'; // 'imposter' | 'teams'
 let turnTimer = null;
+let voteTimer = null;
 const socketCount = new Map(); // playerId -> number of open sockets
 let qr = '';
 
@@ -128,7 +129,7 @@ io.on('connection', (socket) => {
       mode = m;
     },
     'host:start': imposterOnly(() => game.start()),
-    'host:startVote': imposterOnly(() => game.startVote()),
+    'host:startVote': imposterOnly(() => armVoteTimer(game.startVote())),
     'host:closeVote': imposterOnly(() => game.closeVote()),
     'host:next': imposterOnly(() => game.next()),
     'team:start': teamsOnly(() => teamGame.start()),
@@ -187,6 +188,16 @@ function armTimer(ms) {
   }, ms);
 }
 
+// Closes the Imposter vote when its 10 seconds run out.
+function armVoteTimer(ms) {
+  clearTimeout(voteTimer);
+  const voteNo = game.voteNo;
+  voteTimer = setTimeout(() => {
+    game.voteTimeUp(voteNo);
+    broadcast();
+  }, ms);
+}
+
 function reply(ack, msg) {
   if (typeof ack === 'function') ack(msg);
 }
@@ -195,7 +206,7 @@ function broadcast() {
   const connected = new Set(socketCount.keys());
   const now = Date.now();
   io.to('host').emit('board', {
-    ...game.boardView(connected),
+    ...game.boardView(connected, now),
     code: CODE,
     joinUrl: JOIN_URL,
     qr,
@@ -204,7 +215,7 @@ function broadcast() {
     team: teamGame.boardView(now),
   });
   for (const id of game.players.keys()) {
-    io.to('p:' + id).emit('state', { ...game.playerView(id), mode, team: teamGame.playerView(id, now) });
+    io.to('p:' + id).emit('state', { ...game.playerView(id, now), mode, team: teamGame.playerView(id, now) });
   }
 }
 
