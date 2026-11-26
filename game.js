@@ -2,7 +2,7 @@
 
 const WORD_PAIRS = require('./words');
 
-const MAX_ROUNDS = 5;
+const MAX_ROUNDS = 5; // default rounds per game; the host can change it
 const MIN_PLAYERS = 3;
 const VOTE_SECONDS = 10; // each vote lasts the first 10 seconds of the music
 const SKIP = 'skip';
@@ -21,6 +21,8 @@ class Game {
     this.current = null; // the game in progress
     this.roundNote = null; // what happened in the last round when nobody was voted out
     this.voteNo = 0; // counts votes, so an old vote timer can't close a newer vote
+    // maxRounds: clue + vote rounds per game. games: games per session, 0 = everyone is imposter once.
+    this.settings = { maxRounds: MAX_ROUNDS, games: 0 };
   }
 
   // ---------- players ----------
@@ -65,15 +67,16 @@ class Game {
 
   // ---------- host actions ----------
 
+  setSettings({ maxRounds, games } = {}) {
+    if (this.phase === 'clues' || this.phase === 'voting') throw new Error('Wait until the game is over');
+    if (maxRounds !== undefined) this.settings.maxRounds = clamp(maxRounds, 1, 10);
+    if (games !== undefined) this.settings.games = clamp(games, 0, 50);
+  }
+
   start() {
     if (this.inRotation()) throw new Error('A rotation is already running');
     if (this.players.size < MIN_PLAYERS) throw new Error(`Need at least ${MIN_PLAYERS} players`);
-    this.queue = shuffle([...this.players.keys()], this.rng);
-    // Avoid the same imposter twice in a row across rotations.
-    if (this.queue.length > 1 && this.queue[0] === this.lastImposterId) {
-      [this.queue[0], this.queue[this.queue.length - 1]] = [this.queue[this.queue.length - 1], this.queue[0]];
-    }
-    for (const p of this.players.values()) p.wasImposter = false;
+    this.newRotation();
     this.gameNo = 0;
     this.startGame();
   }
@@ -123,7 +126,7 @@ class Game {
 
     if (leaders.length !== 1 || leaders[0] === SKIP) {
       // Tie, skip, or no votes: nobody is out.
-      if (g.round >= MAX_ROUNDS) return this.endGame('imposter', null, tally);
+      if (g.round >= this.settings.maxRounds) return this.endGame('imposter', null, tally);
       this.roundNote = { round: g.round, reason: leaders.length === 1 ? 'skip' : 'tie', tally };
       g.round += 1;
       this.phase = 'clues';
@@ -135,14 +138,27 @@ class Game {
 
   // ---------- internals ----------
 
+  // Shuffles everyone into the imposter queue for a new rotation.
+  newRotation() {
+    this.queue = shuffle([...this.players.keys()], this.rng);
+    // Avoid the same imposter twice in a row across rotations.
+    if (this.queue.length > 1 && this.queue[0] === this.lastImposterId) {
+      [this.queue[0], this.queue[this.queue.length - 1]] = [this.queue[this.queue.length - 1], this.queue[0]];
+    }
+    for (const p of this.players.values()) p.wasImposter = false;
+  }
+
   startGame() {
-    if (this.queue.length === 0) {
+    const limit = this.settings.games;
+    if (limit ? this.gameNo >= limit : this.queue.length === 0) {
       this.phase = 'done';
       this.current = null;
       this.roundNote = null;
       return;
     }
     if (this.players.size < MIN_PLAYERS) throw new Error(`Need at least ${MIN_PLAYERS} players`);
+    // Fixed number of games: when everyone has been imposter, start the next rotation.
+    if (this.queue.length === 0) this.newRotation();
     const imposterId = this.queue.shift();
     const pair = this.pickPair();
     const flip = this.rng() < 0.5;
@@ -174,7 +190,7 @@ class Game {
     const g = this.current;
     let points = 0;
     if (winner === 'imposter') {
-      points = g.round; // 1 point per round survived, max 5
+      points = g.round; // 1 point per round survived, max = rounds per game
       const imp = this.players.get(g.imposterId);
       if (imp) imp.score += points;
     } else {
@@ -236,9 +252,10 @@ class Game {
     return {
       phase: this.phase,
       minPlayers: MIN_PLAYERS,
-      maxRounds: MAX_ROUNDS,
+      maxRounds: this.settings.maxRounds,
+      settings: { ...this.settings },
       gameNo: this.gameNo,
-      totalGames: this.gameNo + this.queue.length,
+      totalGames: this.settings.games || this.gameNo + this.queue.length,
       round: g ? g.round : 0,
       players: this.scores().map((p) => ({
         ...p,
@@ -263,7 +280,7 @@ class Game {
       phase: this.phase,
       me: { id, name: me.name, score: me.score },
       inGame,
-      maxRounds: MAX_ROUNDS,
+      maxRounds: this.settings.maxRounds,
       round: g ? g.round : 0,
       word: null,
       options: [],
@@ -282,6 +299,12 @@ class Game {
     }
     return view;
   }
+}
+
+function clamp(n, lo, hi) {
+  n = Math.round(Number(n));
+  if (!Number.isFinite(n)) return lo;
+  return Math.min(hi, Math.max(lo, n));
 }
 
 function shuffle(arr, rng) {

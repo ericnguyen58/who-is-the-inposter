@@ -132,6 +132,7 @@ io.on('connection', (socket) => {
       mode = m;
     },
     'host:start': imposterOnly(() => game.start()),
+    'host:settings': imposterOnly((s) => game.setSettings(s || {})),
     'host:startVote': imposterOnly(() => armVoteTimer(game.startVote())),
     'host:closeVote': imposterOnly(() => game.closeVote()),
     'host:next': imposterOnly(() => game.next()),

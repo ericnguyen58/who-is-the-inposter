@@ -107,23 +107,30 @@ test('teams take turns and teammates swap acting', () => {
   assert.notStrictEqual(order[0][1], order[2][1], 'actor swaps on the team\'s next turn');
 });
 
-test('first team to the target wins; timer and target are adjustable', () => {
-  const g = setup(4, { target: 2, seconds: 45 });
+test('game lasts the chosen number of rounds; every team plays once per round', () => {
+  const g = setup(6, { rounds: 2, seconds: 45 });
   assert.strictEqual(g.settings.seconds, 45);
-  g.setSettings({ seconds: 5, target: 0 });
-  assert.deepStrictEqual(g.settings, { seconds: 10, target: 1 }); // clamped
-  g.setSettings({ seconds: 30, target: 2 });
+  g.setSettings({ seconds: 5, rounds: 0 });
+  assert.deepStrictEqual(g.settings, { seconds: 10, rounds: 1 }); // clamped
+  g.setSettings({ seconds: 30, rounds: 2 });
   g.start();
+  const played = [];
   let ms;
   while (g.phase !== 'done') {
+    played.push([g.round, g.turn.teamId]);
     writeAll(g);
     ms = g.startTimer(null);
-    g.judge(teamById(g, g.turn.chosenTeamId).members[0], true);
+    g.judge(teamById(g, g.turn.chosenTeamId).members[0], played.length % 2 === 1);
     if (g.phase === 'turnResult') g.next();
   }
   assert.strictEqual(ms, 30000);
-  assert.ok(g.teams.some((t) => t.score === 2));
-  assert.strictEqual(g.winners().length, 1);
+  assert.strictEqual(played.length, 6, '3 teams x 2 rounds');
+  for (const r of [1, 2]) {
+    const teams = played.filter(([round]) => round === r).map(([, id]) => id).sort();
+    assert.deepStrictEqual(teams, g.teams.map((t) => t.id).sort(), `each team once in round ${r}`);
+  }
+  const top = Math.max(...g.teams.map((t) => t.score));
+  assert.deepStrictEqual(g.winners().sort(), g.teams.filter((t) => t.score === top).map((t) => g.teamName(t)).sort());
   g.toLobby();
   assert.strictEqual(g.phase, 'lobby');
 });

@@ -168,3 +168,44 @@ test('vote lasts 10 seconds; only the current vote timer closes it', () => {
   assert.strictEqual(g.current.result.winner, 'crew', 'votes already in are counted');
   assert.strictEqual(g.boardView().voteTimerMs, null);
 });
+
+test('host sets rounds per game', () => {
+  const g = setup(4);
+  g.setSettings({ maxRounds: 3 });
+  g.start();
+  assert.throws(() => g.setSettings({ maxRounds: 2 }), /Wait/);
+  const imp = g.current.imposterId;
+  for (let r = 1; r <= 3; r++) {
+    g.startVote();
+    g.closeVote(); // no votes = nobody out
+  }
+  assert.strictEqual(g.current.result.winner, 'imposter');
+  assert.strictEqual(g.players.get(imp).score, 3);
+  g.setSettings({ maxRounds: 99 });
+  assert.strictEqual(g.settings.maxRounds, 10); // clamped
+});
+
+test('host sets number of games; rotation continues fairly past one cycle', () => {
+  const g = setup(3);
+  g.setSettings({ games: 7 });
+  g.start();
+  const seen = [];
+  while (g.phase !== 'done') {
+    seen.push(g.current.imposterId);
+    assert.strictEqual(g.boardView().totalGames, 7);
+    g.startVote();
+    voteAll(g, g.current.imposterId);
+    g.next();
+  }
+  assert.strictEqual(seen.length, 7);
+  assert.deepStrictEqual(seen.slice(0, 3).sort(), ['p1', 'p2', 'p3']);
+  assert.deepStrictEqual(seen.slice(3, 6).sort(), ['p1', 'p2', 'p3']);
+  for (let i = 1; i < seen.length; i++) assert.notStrictEqual(seen[i], seen[i - 1], 'no imposter twice in a row');
+
+  const h = setup(5);
+  h.setSettings({ games: 2 });
+  h.start();
+  h.startVote(); voteAll(h, h.current.imposterId); h.next();
+  h.startVote(); voteAll(h, h.current.imposterId); h.next();
+  assert.strictEqual(h.phase, 'done', 'fewer games than players ends early');
+});

@@ -90,12 +90,12 @@ function helpHtml(mode, forHost) {
   if (mode === 'teams') {
     const steps = forHost
       ? [
-        'Set <b>Timer</b> and <b>Win at</b>, then tap <b>Make random teams &amp; start</b> (4+ players).',
+        'Set <b>Timer</b> and <b>Rounds</b>, then tap <b>Make random teams &amp; start</b> (4+ players).',
         'Other teams type a word on their phones. To stop waiting, tap <b>Pick from the words in now</b>.',
         'The actor taps <b>Start timer</b> on their phone (or tap it here).',
         'The actor acts or draws on paper. The teammate guesses out loud.',
         'The team that wrote the word taps <b>Correct</b> or <b>Fail</b>. Time running out = fail.',
-        'Tap <b>Next turn</b>. First team to the win score wins.',
+        'Tap <b>Next turn</b>. A round = every team plays once. Most points after the last round wins.',
       ]
       : [
         'When another team plays, your team types one word for them and taps <b>Submit</b>.',
@@ -111,7 +111,7 @@ function helpHtml(mode, forHost) {
       'Tap <b>Start game</b> (3+ players). Each phone shows a word.',
       'Everyone says one clue about their word out loud.',
       'Tap <b>Start vote</b>. Music plays and phones vote for a player or Skip. The vote lasts 10 seconds.',
-      'Tie or Skip = nobody out, next round (max 5 rounds).',
+      'Tie or Skip = nobody out, next round (up to the rounds per game).',
       'Tap <b>Next game</b>. Everyone is the imposter once per rotation.',
     ]
     : [
@@ -121,5 +121,5 @@ function helpHtml(mode, forHost) {
       'When the vote starts, tap the tile of who you think has the different word, or Skip. You have 10 seconds.',
     ];
   return `<div class="help"><h2>Imposter</h2>${list(steps)}
-    <p><b>Points:</b> imposter caught = +1 to everyone else. Wrong player voted out, or 5 rounds survived = imposter wins points equal to the round number.</p></div>`;
+    <p><b>Points:</b> imposter caught = +1 to everyone else. Wrong player voted out, or last round survived = imposter wins points equal to the round number.</p></div>`;
 }

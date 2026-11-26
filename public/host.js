@@ -72,7 +72,8 @@ function render() {
   app.querySelectorAll('[data-set]').forEach((el) => {
     el.onclick = () => {
       const key = el.dataset.set;
-      act('team:settings', { [key]: b.team.settings[key] + Number(el.dataset.delta) });
+      if (el.dataset.scope === 'imposter') act('host:settings', { [key]: b.settings[key] + Number(el.dataset.delta) });
+      else act('team:settings', { [key]: b.team.settings[key] + Number(el.dataset.delta) });
     };
   });
   app.querySelectorAll('[data-kick]').forEach((el) => {
@@ -90,7 +91,7 @@ function modeSwitch(b) {
 
 function teamStage(t, playerCount) {
   const turnLine = t.turn
-    ? `<p class="round">Playing: ${esc(t.turn.playingTeam)} &middot; ${esc(t.turn.actorName)} acts / draws</p>`
+    ? `<p class="round">Round ${t.round} / ${t.settings.rounds} &middot; Playing: ${esc(t.turn.playingTeam)} &middot; ${esc(t.turn.actorName)} acts / draws</p>`
     : '';
   switch (t.phase) {
     case 'lobby': {
@@ -129,12 +130,23 @@ function teamStage(t, playerCount) {
   }
 }
 
+// One "title  − value +" control. scope picks which mode's settings it changes.
+function stepper(scope, key, delta, title, value) {
+  const btn = (d, sign) => `<button class="step" data-scope="${scope}" data-set="${key}" data-delta="${d}">${sign}</button>`;
+  return `<div><span>${title}</span>${btn(-delta, '&minus;')}<b>${value}</b>${btn(delta, '+')}</div>`;
+}
+
 function settingsHtml(s) {
-  const ctl = (key, delta, label) =>
-    `<button class="step" data-set="${key}" data-delta="${-delta}">&minus;</button><b>${label}</b><button class="step" data-set="${key}" data-delta="${delta}">+</button>`;
   return `<div class="settings">
-    <div><span>Timer</span>${ctl('seconds', 10, `${s.seconds}s`)}</div>
-    <div><span>Win at</span>${ctl('target', 1, `${s.target} pts`)}</div>
+    ${stepper('team', 'seconds', 10, 'Timer', `${s.seconds}s`)}
+    ${stepper('team', 'rounds', 1, 'Rounds', s.rounds)}
+  </div>`;
+}
+
+function imposterSettingsHtml(s) {
+  return `<div class="settings">
+    ${stepper('imposter', 'maxRounds', 1, 'Rounds per game', s.maxRounds)}
+    ${stepper('imposter', 'games', 1, 'Games', s.games || 'Everyone once')}
   </div>`;
 }
 
@@ -142,7 +154,7 @@ function teamScoreboard(b) {
   const t = b.team;
   const teams = t.teams.length
     ? `<h2>Teams</h2><ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>
-       <p class="muted">First to ${t.settings.target} wins</p>`
+       <p class="muted">Round ${t.round} / ${t.settings.rounds} &middot; most points wins</p>`
     : '';
   const players = b.players.map((p) => `<li class="${p.connected || p.bot ? '' : 'away'}">
       <span>${esc(p.name)}</span>
@@ -158,6 +170,7 @@ function stage(b) {
       const enough = b.players.length >= b.minPlayers;
       return `<h1>Who is the Imposter?</h1>
         <p class="big">${b.players.length} player${b.players.length === 1 ? '' : 's'} joined</p>
+        ${imposterSettingsHtml(b.settings)}
         <button data-act="host:start" ${enough ? '' : 'disabled'}>Start game</button>
         ${enough ? '' : `<p class="muted">Need at least ${b.minPlayers} players.</p>`}`;
     }
@@ -173,14 +186,16 @@ function stage(b) {
     case 'result': {
       const last = b.gameNo >= b.totalGames;
       return `<p class="round">Game ${b.gameNo} / ${b.totalGames}</p>${resultHtml(b.result)}
-        <button data-act="host:next">${last ? 'Show final scores' : 'Next game'}</button>`;
+        <button data-act="host:next">${last ? 'Show final scores' : 'Next game'}</button>
+        ${imposterSettingsHtml(b.settings)}`;
     }
     case 'done': {
       const top = b.players.length ? b.players[0].score : 0;
       const winners = b.players.filter((p) => p.score === top).map((p) => esc(p.name)).join(', ');
-      return `<h1>Rotation complete</h1>
+      return `<h1>${b.settings.games ? 'All games played' : 'Rotation complete'}</h1>
         <p class="big">Leader: <b>${winners}</b> (${top} pts)</p>
-        <button data-act="host:start">New rotation</button>`;
+        ${imposterSettingsHtml(b.settings)}
+        <button data-act="host:start">Play again</button>`;
     }
     default:
       return '';
