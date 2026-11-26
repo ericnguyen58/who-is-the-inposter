@@ -15,10 +15,25 @@ function setup(n = 4, settings) {
 const teamById = (g, id) => g.teams.find((t) => t.id === id);
 const writers = (g) => g.teams.filter((t) => t.id !== g.turn.teamId);
 
-// Every other team submits a word; returns to 'ready'.
+// Every team writes one word per round.
+function fillDeck(g) {
+  for (const t of g.teams) {
+    for (let i = 0; i < g.settings.rounds; i++) g.addWord(t.members[i % t.members.length], `t${t.id}w${i}`);
+  }
+}
+
+// Live-writing fallback: every other team submits a word.
 function writeAll(g) {
   for (const t of writers(g)) g.submitWord(t.members[0], 'word' + t.id);
 }
+
+// Gets the current turn to 'ready' (deck pick or live fallback).
+function getWord(g) {
+  if (g.phase === 'picking') g.pickCard(g.turn.actorId, g.playerView(g.turn.actorId).cards[0]);
+  else writeAll(g);
+}
+
+const judgeOf = (g) => teamById(g, g.turn.chosenTeamId).members[0];
 
 test('random teams of 2, one team of 3 when odd', () => {
   const even = setup(6);
@@ -30,43 +45,100 @@ test('random teams of 2, one team of 3 when odd', () => {
   assert.throws(() => setup(3).start());
 });
 
-test('word is picked once every other team has submitted', () => {
-  const g = setup(6);
+test('teams write one word per round before the first turn', () => {
+  const g = setup(4, { rounds: 2 });
   g.start();
-  const [a, b] = writers(g);
-  assert.throws(() => g.submitWord(teamById(g, g.turn.teamId).members[0], 'x'), /playing/);
-  g.submitWord(a.members[0], 'cat');
-  g.submitWord(a.members[1], 'dog'); // teammate overwrites
-  assert.strictEqual(g.phase, 'writing');
-  g.submitWord(b.members[0], 'fish');
-  assert.strictEqual(g.phase, 'ready');
-  assert.ok(['dog', 'fish'].includes(g.turn.word));
-  assert.strictEqual(g.turn.words.get(g.turn.chosenTeamId).word, g.turn.word);
+  assert.strictEqual(g.phase, 'collecting');
+  const [a, b] = g.teams;
+  g.addWord(a.members[0], 'Cat');
+  assert.throws(() => g.addWord(a.members[1], 'cat'), /already/);
+  g.addWord(a.members[1], 'Dog');
+  assert.throws(() => g.addWord(a.members[0], 'Fish'), /all its words/);
+  assert.deepStrictEqual(g.playerView(a.members[1]).myWords.map((w) => w.word), ['Cat', 'Dog']);
+  assert.deepStrictEqual(g.playerView(b.members[0]).myWords, [], 'teams only see their own words');
+  const dog = g.deck.find((c) => c.word === 'Dog');
+  assert.throws(() => g.removeWord(b.members[0], dog.id), /Not your word/);
+  g.removeWord(a.members[0], dog.id);
+  g.addWord(a.members[0], 'Dog');
+  g.addWord(b.members[0], 'Sun');
+  assert.strictEqual(g.phase, 'collecting');
+  g.addWord(b.members[1], 'Moon');
+  assert.strictEqual(g.phase, 'picking', 'turns start once every team is done');
+  assert.deepStrictEqual(g.collectingView(), null);
 });
 
-test('only the actor sees the word in the playing team; only the writing team judges', () => {
-  const g = setup(4);
+test('cards offered never include the playing team\'s own words; picked cards leave the deck', () => {
+  const g = setup(6, { rounds: 2 });
   g.start();
-  writeAll(g);
-  const playing = teamById(g, g.turn.teamId);
-  const guesser = playing.members.find((m) => m !== g.turn.actorId);
-  assert.strictEqual(g.playerView(g.turn.actorId).word, g.turn.word);
+  fillDeck(g);
+  const actor = g.turn.actorId;
+  const offered = g.playerView(actor).cards;
+  assert.ok(offered.length > 0);
+  for (const id of offered) assert.notStrictEqual(g.deck.find((c) => c.id === id).teamId, g.turn.teamId);
+  const guesser = teamById(g, g.turn.teamId).members.find((m) => m !== actor);
+  assert.deepStrictEqual(g.playerView(guesser).cards, [], 'only the actor gets the cards');
+  assert.throws(() => g.pickCard(guesser, offered[0]), /actor/);
+  const card = g.deck.find((c) => c.id === offered[0]);
+  g.pickCard(actor, card.id);
+  assert.strictEqual(g.phase, 'ready');
+  assert.strictEqual(g.turn.word, card.word);
+  assert.strictEqual(g.turn.chosenTeamId, card.teamId, 'the team that wrote it judges');
+  assert.ok(!g.deck.includes(card));
+  assert.strictEqual(g.deck.length, 5);
+  assert.strictEqual(g.playerView(actor).word, card.word);
   assert.strictEqual(g.playerView(guesser).word, null);
-  assert.throws(() => g.startTimer(guesser));
-  g.startTimer(g.turn.actorId, 0);
-  assert.throws(() => g.judge(guesser, true), /Only the team/);
-  const judge = teamById(g, g.turn.chosenTeamId).members[0];
-  assert.strictEqual(g.playerView(judge).role, 'judge');
-  assert.strictEqual(g.playerView(judge).word, g.turn.word);
+  assert.strictEqual(g.boardView().deck.left, 5);
+});
+
+test('the deck always covers every turn with another team\'s card', () => {
+  for (let run = 0; run < 200; run++) {
+    const n = 4 + 2 * (run % 4); // 2..5 teams
+    const g = setup(n, { rounds: 1 + (run % 3) });
+    g.start();
+    fillDeck(g);
+    let turns = 0;
+    while (g.phase !== 'done') {
+      assert.strictEqual(g.phase, 'picking', 'never falls back to live writing');
+      const cards = g.playerView(g.turn.actorId).cards;
+      g.pickCard(g.turn.actorId, cards[Math.floor(Math.random() * cards.length)]);
+      assert.notStrictEqual(g.turn.chosenTeamId, g.turn.teamId);
+      g.startTimer(null);
+      g.judge(judgeOf(g), Math.random() < 0.5);
+      turns++;
+      if (g.phase === 'turnResult') g.next();
+    }
+    assert.strictEqual(turns, g.teams.length * g.settings.rounds);
+    assert.strictEqual(g.deck.length, 0, 'every card used once');
+  }
+});
+
+test('host can start before all words are in; missing cards fall back to live writing', () => {
+  const g = setup(4, { rounds: 2 });
+  g.start();
+  g.begin(); // no words at all
+  assert.strictEqual(g.phase, 'writing');
+  writeAll(g);
+  assert.strictEqual(g.phase, 'ready');
+  const h = setup(4, { rounds: 1 });
+  h.start();
+  h.addWord(h.teams[0].members[0], 'Only');
+  h.begin();
+  if (h.turn.teamId === h.teams[0].id) assert.strictEqual(h.phase, 'writing');
+  else {
+    assert.strictEqual(h.phase, 'picking');
+    h.pickRandom();
+    assert.strictEqual(h.turn.word, 'Only');
+  }
 });
 
 test('correct guess: +1 to the playing team', () => {
   const g = setup(4);
   g.start();
-  writeAll(g);
+  fillDeck(g);
+  getWord(g);
   g.startTimer(null);
   const playing = g.turn.teamId;
-  g.judge(teamById(g, g.turn.chosenTeamId).members[0], true);
+  g.judge(judgeOf(g), true);
   assert.strictEqual(teamById(g, playing).score, 1);
   assert.strictEqual(g.phase, 'turnResult');
 });
@@ -74,14 +146,16 @@ test('correct guess: +1 to the playing team', () => {
 test('fail or time up: +1 to the team that wrote the word', () => {
   const g = setup(4);
   g.start();
-  writeAll(g);
+  fillDeck(g);
+  getWord(g);
   g.startTimer(null);
   const writer = g.turn.chosenTeamId;
+  assert.throws(() => g.judge(teamById(g, g.turn.teamId).members[0], true), /Only the team/);
   g.judge(teamById(g, writer).members[1], false);
   assert.strictEqual(teamById(g, writer).score, 1);
 
   g.next();
-  writeAll(g);
+  getWord(g);
   g.startTimer(null);
   const writer2 = g.turn.chosenTeamId;
   g.timeUp(g.turnNo - 1); // stale timer from an old turn does nothing
@@ -92,35 +166,37 @@ test('fail or time up: +1 to the team that wrote the word', () => {
 });
 
 test('teams take turns and teammates swap acting', () => {
-  const g = setup(4);
+  const g = setup(4, { rounds: 2 });
   g.start();
+  fillDeck(g);
   const order = [];
   for (let i = 0; i < 4; i++) {
     order.push([g.turn.teamId, g.turn.actorId]);
-    writeAll(g);
+    getWord(g);
     g.startTimer(null);
-    g.judge(teamById(g, g.turn.chosenTeamId).members[0], i % 2 === 0); // alternate outcomes
-    g.next();
+    g.judge(judgeOf(g), i % 2 === 0);
+    if (g.phase === 'turnResult') g.next();
   }
   assert.notStrictEqual(order[0][0], order[1][0]);
   assert.strictEqual(order[0][0], order[2][0]);
   assert.notStrictEqual(order[0][1], order[2][1], 'actor swaps on the team\'s next turn');
 });
 
-test('game lasts the chosen number of rounds; every team plays once per round', () => {
+test('game lasts the chosen number of rounds; settings are clamped', () => {
   const g = setup(6, { rounds: 2, seconds: 45 });
   assert.strictEqual(g.settings.seconds, 45);
   g.setSettings({ seconds: 5, rounds: 0 });
-  assert.deepStrictEqual(g.settings, { seconds: 10, rounds: 1 }); // clamped
+  assert.deepStrictEqual(g.settings, { seconds: 10, rounds: 1 });
   g.setSettings({ seconds: 30, rounds: 2 });
   g.start();
+  fillDeck(g);
   const played = [];
   let ms;
   while (g.phase !== 'done') {
     played.push([g.round, g.turn.teamId]);
-    writeAll(g);
+    getWord(g);
     ms = g.startTimer(null);
-    g.judge(teamById(g, g.turn.chosenTeamId).members[0], played.length % 2 === 1);
+    g.judge(judgeOf(g), played.length % 2 === 1);
     if (g.phase === 'turnResult') g.next();
   }
   assert.strictEqual(ms, 30000);
@@ -133,20 +209,22 @@ test('game lasts the chosen number of rounds; every team plays once per round', 
   assert.deepStrictEqual(g.winners().sort(), g.teams.filter((t) => t.score === top).map((t) => g.teamName(t)).sort());
   g.toLobby();
   assert.strictEqual(g.phase, 'lobby');
+  assert.strictEqual(g.deck.length, 0);
 });
 
-test('actor leaving cancels the turn; a lone player joins another team', () => {
+test('actor leaving cancels the turn; a dissolved team\'s cards leave the deck', () => {
   const g = setup(6);
   g.start();
-  writeAll(g);
+  fillDeck(g);
   const actor = g.turn.actorId;
   const playing = g.turn.teamId;
   g.removePlayer(actor);
   assert.strictEqual(g.turn.result.outcome, 'cancelled');
   assert.ok(!g.teams.some((t) => t.id === playing), 'team of 1 is dissolved');
+  assert.ok(!g.deck.some((c) => c.teamId === playing), 'its cards are gone');
   assert.strictEqual(g.teams.reduce((n, t) => n + t.members.length, 0), 5);
   g.next();
-  assert.strictEqual(g.phase, 'writing');
+  assert.ok(['picking', 'writing'].includes(g.phase));
 });
 
 test('late joiner goes to the smallest team', () => {
@@ -157,15 +235,17 @@ test('late joiner goes to the smallest team', () => {
   assert.deepStrictEqual(g.teams.map((t) => t.members.length).sort(), [3, 3]);
 });
 
-test('reset clears teams and scores and goes back to the lobby', () => {
+test('reset clears teams, deck and scores and goes back to the lobby', () => {
   const g = setup(4, { rounds: 2 });
   g.start();
-  writeAll(g);
+  fillDeck(g);
+  getWord(g);
   g.startTimer(null);
-  g.judge(teamById(g, g.turn.chosenTeamId).members[0], true);
+  g.judge(judgeOf(g), true);
   g.reset();
   assert.strictEqual(g.phase, 'lobby');
   assert.strictEqual(g.teams.length, 0);
+  assert.strictEqual(g.deck.length, 0);
   assert.strictEqual(g.settings.rounds, 2);
   g.start();
   assert.ok(g.teams.every((t) => t.score === 0));

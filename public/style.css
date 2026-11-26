@@ -272,3 +272,75 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
 /* ---------- Testing panel ---------- */
 
 .test-panel { border-style: dashed; }
+
+/* ---------- Act & Draw word cards ---------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+  perspective: 900px;
+}
+.cards.single { grid-template-columns: minmax(0, 260px); justify-content: center; }
+.card { aspect-ratio: 3 / 4; transition: opacity 0.5s, transform 0.5s; }
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1.15);
+}
+.card.flipped .card-inner { transform: rotateY(180deg); }
+.card-back, .card-front {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 2px solid var(--gold);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.card-back {
+  background:
+    radial-gradient(circle at center, rgba(239, 227, 207, 0.12) 0 30%, transparent 31%),
+    repeating-linear-gradient(45deg, #a85b2a 0 8px, #934e23 8px 16px);
+  font-size: 1.8rem;
+}
+.card-front {
+  transform: rotateY(180deg);
+  background: var(--text);
+  color: var(--panel);
+  font-family: Georgia, "Times New Roman", serif;
+}
+.card-front b { font-size: 1.1rem; color: var(--accent); }
+.card-front small { font-family: system-ui, sans-serif; font-size: 0.75rem; color: #6b5a46; }
+.card-word { font-size: 2rem; font-weight: 700; word-break: break-word; }
+.card.big { width: 100%; }
+
+.card.pickable { cursor: pointer; }
+.card.pickable:hover .card-inner, .card.pickable:active .card-inner { transform: translateY(-6px) rotate(-2deg); }
+.card.chosen { transform: scale(1.12); z-index: 1; }
+.card.fade { opacity: 0.2; transform: scale(0.9); }
+
+.card.deal { animation: deal 0.5s ease-out both; animation-delay: var(--d); }
+@keyframes deal {
+  from { opacity: 0; transform: translateY(-40px) rotate(-12deg) scale(0.8); }
+}
+
+.my-words li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin: 4px 0;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}

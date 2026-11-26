@@ -34,7 +34,10 @@ npm start
 Pick **Act & Draw** on the scoreboard before starting (switching is possible whenever no game is running). Needs at least 4 players.
 
 - The app makes random teams of 2. With an odd number of players, one team has 3.
-- Each turn one team plays. Every other team types a word on their phones, and the app picks one at random.
+- Before the first turn, every team writes **one word per round** on their phones (5 rounds = 5 words per team). Only their own team sees them. These words make a shared deck of cards.
+- Each turn one team plays. The actor's phone shows face-down cards from the **other** teams' words. The actor taps one and it flips to show the word, on the actor's phone only. The scoreboard flips the same card to show only "Picked!" and which team wrote it.
+- Picked cards leave the deck for good, so the deck gets smaller every turn. The app only offers cards that still leave every team enough cards from other teams for its remaining turns.
+- If the deck can't cover a turn (for example the host started before all words were in, or players left), the other teams type a word live for that turn.
 - The actor sees the word and acts it out or draws it on paper, without saying it or pointing at it. Their teammate guesses out loud. Teammates take turns acting.
 - The team whose word was picked confirms on their phone:
   - **Correct**: the playing team gets **+1**.
@@ -78,11 +81,12 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 
 1. Set **Timer** and **Rounds** with the − / + buttons.
 2. Tap **Make random teams & start**. The scoreboard lists the teams.
-3. The phones of the other teams ask for a word. Each team types one word and taps **Submit**. To stop waiting for slow teams, tap **Pick from the words in now**.
-4. The actor's phone shows the word. When they're ready, they tap **Start timer** (the host can also tap **Start timer** on the laptop).
-5. The actor acts or draws on paper and the teammate guesses out loud. The team that wrote the word taps **Correct** or **Fail** on their phone. If time runs out, it counts as a fail.
-6. Tap **Next turn**. The timer and number of rounds can be changed here.
-7. After the last round, the team with the most points wins. Tap **Back to lobby** to play again or switch modes.
+3. Each team writes one word per round on their phones (**Add word**; tap **×** to remove one). The scoreboard shows each team's progress. The first turn starts by itself when every team is done; **Start now with the words in** skips the wait.
+4. The actor taps a face-down card on their phone. It flips to show the word; the scoreboard only shows "Picked!" and the team that wrote it. **Pick a random card** on the scoreboard picks for the actor (for example when the actor is a bot).
+5. When they're ready, the actor taps **Start timer** (the host can also tap **Start timer** on the laptop).
+6. The actor acts or draws on paper and the teammate guesses out loud. The team that wrote the word taps **Correct** or **Fail** on their phone. If time runs out, it counts as a fail.
+7. Tap **Next turn**. The timer and number of rounds can be changed here.
+8. After the last round, the team with the most points wins. Tap **Back to lobby** to play again or switch modes.
 
 ### During play
 
