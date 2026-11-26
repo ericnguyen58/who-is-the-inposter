@@ -10,13 +10,15 @@
 // A round = every team plays one turn. After the last round, the team with the most points wins.
 
 const MIN_PLAYERS = 4;
-const TURN_PHASES = ['picking', 'writing', 'ready', 'acting'];
+const TURN_PHASES = ['picking', 'writing', 'rolling', 'ready', 'acting'];
+// Act-or-draw dice: 6 faces, alternating, so 3 Act and 3 Draw.
+const DICE_FACES = ['act', 'draw', 'act', 'draw', 'act', 'draw'];
 
 class TeamGame {
   constructor({ players, rng = Math.random }) {
     this.players = players; // shared Map id -> { name }, owned by the imposter Game
     this.rng = rng;
-    // lobby -> collecting -> picking (or writing) -> ready -> acting -> turnResult -> picking ... -> done
+    // lobby -> collecting -> picking (or writing) -> rolling -> ready -> acting -> turnResult -> picking ... -> done
     this.phase = 'lobby';
     this.settings = { seconds: 60, rounds: 3 };
     this.teams = []; // { id, members: [playerId], score, actorIdx }
@@ -156,10 +158,24 @@ class TeamGame {
     if (this.turn.words.size >= this.teams.length - 1) this.chooseWord();
   }
 
-  // Actor (or host, playerId = null) starts the timer. Returns the timer length in ms.
+  // After seeing the word, the actor (or host, playerId = null) rolls the dice: act or draw.
+  roll(playerId) {
+    if (this.phase !== 'rolling') throw new Error('Not time to roll');
+    if (playerId !== null && playerId !== this.turn.actorId) throw new Error('Only the actor can roll');
+    const face = Math.floor(this.rng() * DICE_FACES.length);
+    this.turn.dice = { face, style: DICE_FACES[face] };
+    this.phase = 'ready';
+  }
+
+  // The actor's teammate (or host, playerId = null) starts the timer. Returns the timer length in ms.
   startTimer(playerId, now = Date.now()) {
     if (this.phase !== 'ready') throw new Error('Not ready to start');
-    if (playerId !== null && playerId !== this.turn.actorId) throw new Error('Only the actor can start');
+    if (playerId !== null) {
+      const team = this.teamOf(playerId);
+      if (!team || team.id !== this.turn.teamId || playerId === this.turn.actorId) {
+        throw new Error("Only the actor's teammate can start the timer");
+      }
+    }
     this.turn.endsAt = now + this.settings.seconds * 1000;
     this.phase = 'acting';
     return this.settings.seconds * 1000;
@@ -243,6 +259,7 @@ class TeamGame {
       actorId,
       words: new Map(), // live-writing fallback: teamId -> { word, by }
       cardId: null, // card picked from the deck
+      dice: null, // { face, style: 'act' | 'draw' } after the roll
       chosenTeamId: null,
       word: null,
       endsAt: null,
@@ -273,7 +290,7 @@ class TeamGame {
     this.turn.cardId = card.id;
     this.turn.chosenTeamId = card.teamId;
     this.turn.word = card.word;
-    this.phase = 'ready';
+    this.phase = 'rolling'; // the actor rolls act-or-draw next
   }
 
   chooseWord() {
@@ -281,7 +298,7 @@ class TeamGame {
     const [teamId, { word }] = entries[Math.floor(this.rng() * entries.length)];
     this.turn.chosenTeamId = teamId;
     this.turn.word = word;
-    this.phase = 'ready';
+    this.phase = 'rolling'; // the actor rolls act-or-draw next
   }
 
   endTurn(outcome) {
@@ -355,6 +372,10 @@ class TeamGame {
       writerTeam: t.chosenTeamId ? this.teamName(this.teamById(t.chosenTeamId)) : null,
       timerMs: this.timerMs(now),
       cardId: t.cardId,
+      turnNo: this.turnNo,
+      dice: t.dice,
+      guesserName: (this.teamById(t.teamId) || { members: [] }).members
+        .filter((m) => m !== t.actorId).map((m) => (this.players.get(m) || { name: '?' }).name).join(' & '),
     };
   }
 

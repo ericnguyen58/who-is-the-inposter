@@ -93,14 +93,16 @@ function helpHtml(mode, forHost) {
         'Set <b>Timer</b> and <b>Rounds</b>, then tap <b>Make random teams &amp; start</b> (4+ players).',
         'Every team writes one word per round on their phones. Turns start when all teams are done (or tap <b>Start now with the words in</b>).',
         'The actor picks a face-down card on their phone. Here it only shows <b>Picked!</b> and the team that wrote it.',
-        'The actor taps <b>Start timer</b> on their phone (or tap it here).',
+        'The actor rolls the dice: <b>Act</b> or <b>Draw</b> (or tap <b>Roll for …</b> here).',
+        'The actor\u2019s teammate taps <b>Start timer</b> on their phone (or tap it here).',
         'The actor acts or draws on paper. The teammate guesses out loud.',
         'The team that wrote the word taps <b>Correct</b> or <b>Fail</b>. Time running out = fail.',
         'Tap <b>Next turn</b>. A round = every team plays once. Most points after the last round wins.',
       ]
       : [
         'Before the first turn, your team writes one word per round. Only your team sees them.',
-        'When your team plays, the actor picks a face-down card from the other teams\u2019 words, sees the word and taps <b>Start timer</b>.',
+        'When your team plays, the actor picks a face-down card from the other teams\u2019 words, sees the word and rolls the dice: <b>Act</b> or <b>Draw</b>.',
+        'The actor\u2019s teammate taps <b>Start timer</b>.',
         'The actor acts or draws it on paper. No saying it, no pointing at it. The teammate guesses out loud.',
         'If your team’s word is picked, you judge: tap <b>Correct</b> or <b>Fail</b>.',
       ];
@@ -144,4 +146,66 @@ function runFlips() {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     document.querySelectorAll('.card.flip').forEach((c) => c.classList.add('flipped'));
   }));
+}
+
+// ---------- Act & Draw dice (3 Act faces, 3 Draw faces) ----------
+
+// Cube rotation [x, y] that brings each face to the front.
+const DICE_ROT = [[0, 0], [0, 180], [0, -90], [0, 90], [-90, 0], [90, 0]];
+
+// dice = { face, style } or null (not rolled yet: the die spins slowly).
+// animate = tumble from a fast spin and land on the face (once per roll; see runDice).
+function diceHtml(dice, animate) {
+  const faces = DICE_ROT.map((_, i) => {
+    const draw = i % 2 === 1;
+    return `<div class="die-face f${i} ${draw ? 'draw' : 'act'}">
+      <span>${draw ? '✏️' : '\u{1F3AD}'}</span><b>${draw ? 'Draw' : 'Act'}</b></div>`;
+  }).join('');
+  if (!dice) return `<div class="dice-wrap"><div class="die idle">${faces}</div></div>`;
+  const [x, y] = DICE_ROT[dice.face];
+  const final = `rotateX(${x}deg) rotateY(${y}deg)`;
+  const start = `rotateX(${x + 1080}deg) rotateY(${y + 720}deg)`;
+  const label = dice.style === 'act' ? 'Act it out!' : 'Draw it!';
+  return `<div class="dice-wrap"><div class="die" ${animate ? `data-roll="${final}"` : ''} style="transform:${animate ? start : final}">${faces}</div></div>
+    <p class="dice-result ${dice.style} ${animate ? 'reveal' : ''}">${label}</p>`;
+}
+
+// Starts the tumble on dice rendered with animate = true.
+function runDice() {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('.die[data-roll]').forEach((d) => {
+      d.style.transform = d.dataset.roll;
+      d.removeAttribute('data-roll');
+    });
+  }));
+}
+
+function diceStyleLine(dice) {
+  if (!dice) return '';
+  return `<p class="dice-result ${dice.style}">${dice.style === 'act' ? 'Act it out!' : 'Draw it!'}</p>`;
+}
+
+// ---------- Leaderboard top 3 ----------
+
+const MEDALS = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+
+// Ranks for a list sorted high to low; ties share a rank (5, 5, 3 -> 1, 1, 3).
+function scoreRanks(items) {
+  const scores = items.map((x) => x.score);
+  return scores.map((s) => scores.indexOf(s) + 1);
+}
+
+// Class and medal for a row: only ranks 1-3 with more than 0 points stand out.
+function podium(rank, score) {
+  if (score <= 0 || rank > 3) return { cls: '', medal: '' };
+  return { cls: `top${rank}`, medal: `<i class="medal">${MEDALS[rank - 1]}</i>` };
+}
+
+// <li> rows for a simple { name, score } leaderboard.
+function scoreRowsHtml(items) {
+  const ranks = scoreRanks(items);
+  return items.map((x, i) => {
+    const p = podium(ranks[i], x.score);
+    return `<li class="${p.cls}"><span>${p.medal}${esc(x.name)}</span><b>${x.score}</b></li>`;
+  }).join('');
 }
