@@ -10,7 +10,7 @@
 // A round = every team plays one turn. After the last round, the team with the most points wins.
 
 const MIN_PLAYERS = 4;
-const TURN_PHASES = ['picking', 'writing', 'rolling', 'ready', 'acting'];
+const TURN_PHASES = ['picking', 'writing', 'rolling', 'ready', 'acting', 'judging'];
 // Act-or-draw dice: 6 faces, alternating, so 3 Act and 3 Draw.
 const DICE_FACES = ['act', 'draw', 'act', 'draw', 'act', 'draw'];
 
@@ -18,7 +18,7 @@ class TeamGame {
   constructor({ players, rng = Math.random }) {
     this.players = players; // shared Map id -> { name }, owned by the imposter Game
     this.rng = rng;
-    // lobby -> collecting -> picking (or writing) -> rolling -> ready -> acting -> turnResult -> picking ... -> done
+    // lobby -> collecting -> picking (or writing) -> rolling -> ready -> acting -> (judging) -> turnResult -> ... -> done
     this.phase = 'lobby';
     this.settings = { seconds: 60, rounds: 3 };
     this.teams = []; // { id, members: [playerId], score, actorIdx }
@@ -181,16 +181,24 @@ class TeamGame {
     return this.settings.seconds * 1000;
   }
 
-  // A member of the team that wrote the word confirms the result.
+  // A member of the team that wrote the word (or the host, playerId = null) decides:
+  // right when the word is guessed, or after the timer ends.
   judge(playerId, correct) {
-    if (this.phase !== 'acting') throw new Error('No turn running');
-    const team = this.teamOf(playerId);
-    if (!team || team.id !== this.turn.chosenTeamId) throw new Error('Only the team that wrote the word can judge');
-    this.endTurn(correct ? 'guessed' : 'failed');
+    if (this.phase !== 'acting' && this.phase !== 'judging') throw new Error('No turn running');
+    if (playerId !== null) {
+      const team = this.teamOf(playerId);
+      if (!team || team.id !== this.turn.chosenTeamId) throw new Error('Only the team that wrote the word can judge');
+    }
+    if (correct) this.endTurn('guessed');
+    else this.endTurn(this.phase === 'judging' ? 'timeout' : 'failed');
   }
 
+  // Time is up: the team that wrote the word still decides (correct or fail).
   timeUp(turnNo) {
-    if (this.phase === 'acting' && this.turnNo === turnNo) this.endTurn('timeout');
+    if (this.phase === 'acting' && this.turnNo === turnNo) {
+      this.turn.endsAt = null;
+      this.phase = 'judging';
+    }
   }
 
   // ---------- players joining / leaving ----------

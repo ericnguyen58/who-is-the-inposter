@@ -163,6 +163,8 @@ test('fail or time up: +1 to the team that wrote the word', () => {
   g.timeUp(g.turnNo - 1); // stale timer from an old turn does nothing
   assert.strictEqual(g.phase, 'acting');
   g.timeUp(g.turnNo);
+  assert.strictEqual(g.phase, 'judging', 'time up waits for the writing team');
+  g.judge(teamById(g, writer2).members[0], false);
   assert.strictEqual(g.turn.result.outcome, 'timeout');
   assert.strictEqual(teamById(g, writer2).score, 1 + (writer2 === writer ? 1 : 0));
 });
@@ -286,4 +288,26 @@ test('dice lands on act and draw about half the time each', () => {
     counts[g.turn.dice.style]++;
   }
   assert.ok(counts.act > 220 && counts.draw > 220, JSON.stringify(counts));
+});
+
+test('after time is up the writing team can still approve; the host can judge for bots', () => {
+  const g = setup(4);
+  g.start();
+  fillDeck(g);
+  getWord(g);
+  g.startTimer(null);
+  g.timeUp(g.turnNo);
+  assert.strictEqual(g.phase, 'judging');
+  assert.strictEqual(g.boardView().turn.timerMs, null);
+  const playing = g.turn.teamId;
+  assert.throws(() => g.judge(teamById(g, playing).members[0], true), /Only the team/);
+  g.judge(judgeOf(g), true);
+  assert.strictEqual(g.turn.result.outcome, 'guessed');
+  assert.strictEqual(teamById(g, playing).score, 1);
+
+  g.next();
+  getWord(g);
+  g.startTimer(null);
+  g.judge(null, false); // host
+  assert.strictEqual(g.turn.result.outcome, 'failed');
 });

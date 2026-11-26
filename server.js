@@ -169,6 +169,7 @@ io.on('connection', (socket) => {
     'team:begin': teamsOnly(() => teamGame.begin()),
     'team:pickRandom': teamsOnly(() => teamGame.pickRandom()),
     'team:hostRoll': teamsOnly(() => teamGame.roll(null)),
+    'team:hostJudge': teamsOnly((correct) => teamGame.judge(null, !!correct)),
     'team:hostGo': teamsOnly(() => armTimer(teamGame.startTimer(null))),
     'team:next': teamsOnly(() => teamGame.next()),
     'team:lobby': teamsOnly(() => teamGame.toLobby()),

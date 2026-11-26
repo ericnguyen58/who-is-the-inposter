@@ -18,9 +18,19 @@ let lastOffered = [];
 let dealtKey = '';
 let flippedCard = null;
 let diceShownTurn = null;
+let soundTurn = null; // Act & Draw turn whose result sound already played
 
 socket.on('board', (b) => {
   if (b.mode === 'teams' && b.team.phase === 'picking') lastOffered = b.team.deck.offered;
+  // Act & Draw: announce the result once with a sound.
+  const tr = b.mode === 'teams' && ['turnResult', 'done'].includes(b.team.phase) ? b.team.result : null;
+  if (tr && b.team.turn && b.team.turn.turnNo !== soundTurn) {
+    soundTurn = b.team.turn.turnNo;
+    if (board && board.mode === 'teams' && ['acting', 'judging'].includes(board.team.phase)) {
+      if (tr.outcome === 'guessed') VoteMusic.correct();
+      else if (tr.outcome !== 'cancelled') VoteMusic.wrong();
+    }
+  }
   const cm = b.customMusic || {};
   VoteMusic.setCustom(cm.vote ? `/custom-music/vote?v=${cm.vote.version}` : null);
   LobbyMusic.setSource(cm.lobby ? `/custom-music/lobby?v=${cm.lobby.version}` : null);
@@ -90,6 +100,7 @@ function render() {
   };
   const musicBtn = app.querySelector('[data-music-test]');
   if (musicBtn) musicBtn.onclick = () => (musicTestEnd ? stopMusicTest() : startMusicTest());
+  app.querySelectorAll('[data-host-judge]').forEach((el) => { el.onclick = () => act('team:hostJudge', el.dataset.hostJudge === '1'); });
   app.querySelectorAll('[data-mode]').forEach((el) => { el.onclick = () => act('host:mode', el.dataset.mode); });
   app.querySelectorAll('[data-set]').forEach((el) => {
     el.onclick = () => {
@@ -222,15 +233,21 @@ function teamStage(t, playerCount) {
       const animate = t.turn.turnNo !== diceShownTurn;
       diceShownTurn = t.turn.turnNo;
       return `${turnLine}
-        ${diceHtml(t.turn.dice, animate)}
+        ${diceHtml(t.turn.dice, animate, t.turn.actorName)}
         <p>${esc(t.turn.guesserName)} starts the timer on their phone.</p>
         <button class="secondary" data-act="team:hostGo">Start timer</button>`;
     }
     case 'acting':
       return `${turnLine}
-        ${diceStyleLine(t.turn.dice)}
+        ${diceStyleLine(t.turn.dice, t.turn.actorName)}
         <p class="timer huge"></p>
         <p class="big">Guess out loud! <b>${esc(t.turn.writerTeam)}</b> confirms on their phone.</p>`;
+    case 'judging':
+      return `${turnLine}
+        <p class="timer huge low">0s</p>
+        <p class="big">Time's up! Waiting for <b>${esc(t.turn.writerTeam)}</b> to decide on their phone.</p>
+        <div class="judge"><button class="secondary" data-host-judge="1">Correct</button><button class="secondary" data-host-judge="0">Fail</button></div>
+        <p class="muted">Host buttons, e.g. when the writing team are bots.</p>`;
     case 'turnResult':
       return `${teamResultHtml(t.result)}
         <button data-act="team:next">Next turn</button>
