@@ -10,15 +10,15 @@
 // A round = every team plays one turn. After the last round, the team with the most points wins.
 
 const MIN_PLAYERS = 4;
-const TURN_PHASES = ['picking', 'writing', 'rolling', 'ready', 'acting', 'judging'];
-// Act-or-draw dice: 6 faces, alternating, so 3 Act and 3 Draw.
-const DICE_FACES = ['act', 'draw', 'act', 'draw', 'act', 'draw'];
+const TURN_PHASES = ['picking', 'writing', 'flipping', 'ready', 'acting', 'judging'];
+// Act-or-draw coin: one side each.
+const COIN_SIDES = ['act', 'draw'];
 
 class TeamGame {
   constructor({ players, rng = Math.random }) {
     this.players = players; // shared Map id -> { name }, owned by the imposter Game
     this.rng = rng;
-    // lobby -> collecting -> picking (or writing) -> rolling -> ready -> acting -> (judging) -> turnResult -> ... -> done
+    // lobby -> collecting -> picking (or writing) -> flipping -> ready -> acting -> (judging) -> turnResult -> ... -> done
     this.phase = 'lobby';
     this.settings = { seconds: 60, rounds: 3 };
     this.teams = []; // { id, members: [playerId], score, actorIdx }
@@ -29,6 +29,7 @@ class TeamGame {
     this.turn = null;
     this.nextTeamId = 1;
     this.deck = []; // { id, word, teamId } cards still unused
+    this.usedCards = []; // cards already played
     this.nextCardId = 1;
     this.turnsPlayed = new Map(); // teamId -> turns played
   }
@@ -57,6 +58,7 @@ class TeamGame {
     this.round = 1;
     this.playedThisRound.clear();
     this.deck = [];
+    this.usedCards = [];
     this.turnsPlayed.clear();
     this.phase = 'collecting'; // every team writes its words first
   }
@@ -96,6 +98,7 @@ class TeamGame {
     this.round = 1;
     this.playedThisRound.clear();
     this.deck = [];
+    this.usedCards = [];
     this.turnsPlayed.clear();
   }
 
@@ -105,6 +108,7 @@ class TeamGame {
     this.teams = [];
     this.turn = null;
     this.deck = [];
+    this.usedCards = [];
   }
 
   // ---------- player actions ----------
@@ -158,13 +162,23 @@ class TeamGame {
     if (this.turn.words.size >= this.teams.length - 1) this.chooseWord();
   }
 
-  // After seeing the word, the actor (or host, playerId = null) rolls the dice: act or draw.
-  roll(playerId) {
-    if (this.phase !== 'rolling') throw new Error('Not time to roll');
-    if (playerId !== null && playerId !== this.turn.actorId) throw new Error('Only the actor can roll');
-    const face = Math.floor(this.rng() * DICE_FACES.length);
-    this.turn.dice = { face, style: DICE_FACES[face] };
+  // After seeing the word, the actor (or host, playerId = null) flips the coin: act or draw.
+  flipCoin(playerId) {
+    if (this.phase !== 'flipping') throw new Error('Not time to flip the coin');
+    if (playerId !== null && playerId !== this.turn.actorId) throw new Error('Only the actor can flip the coin');
+    this.turn.coin = { side: COIN_SIDES[Math.floor(this.rng() * COIN_SIDES.length)] };
     this.phase = 'ready';
+  }
+
+  // Any team member can rename their team (empty name = back to the members' names).
+  renameTeam(playerId, rawName) {
+    const team = this.teamOf(playerId);
+    if (!team) throw new Error('You are not on a team');
+    const name = String(rawName || '').trim().slice(0, 20);
+    if (name && this.teams.some((t) => t !== team && this.teamName(t).toLowerCase() === name.toLowerCase())) {
+      throw new Error('Another team has that name');
+    }
+    team.name = name || null;
   }
 
   // The actor's teammate (or host, playerId = null) starts the timer. Returns the timer length in ms.
@@ -267,7 +281,7 @@ class TeamGame {
       actorId,
       words: new Map(), // live-writing fallback: teamId -> { word, by }
       cardId: null, // card picked from the deck
-      dice: null, // { face, style: 'act' | 'draw' } after the roll
+      coin: null, // { side: 'act' | 'draw' } after the flip
       chosenTeamId: null,
       word: null,
       endsAt: null,
@@ -295,10 +309,11 @@ class TeamGame {
 
   takeCard(card) {
     this.deck = this.deck.filter((c) => c !== card);
+    this.usedCards.push(card);
     this.turn.cardId = card.id;
     this.turn.chosenTeamId = card.teamId;
     this.turn.word = card.word;
-    this.phase = 'rolling'; // the actor rolls act-or-draw next
+    this.phase = 'flipping'; // the actor flips the act-or-draw coin next
   }
 
   chooseWord() {
@@ -306,7 +321,7 @@ class TeamGame {
     const [teamId, { word }] = entries[Math.floor(this.rng() * entries.length)];
     this.turn.chosenTeamId = teamId;
     this.turn.word = word;
-    this.phase = 'rolling'; // the actor rolls act-or-draw next
+    this.phase = 'flipping'; // the actor flips the act-or-draw coin next
   }
 
   endTurn(outcome) {
@@ -334,6 +349,7 @@ class TeamGame {
   // ---------- views ----------
 
   teamName(team) {
+    if (team && team.name) return team.name;
     return team ? team.members.map((m) => (this.players.get(m) || { name: '?' }).name).join(' & ') : '(gone)';
   }
 
@@ -381,7 +397,7 @@ class TeamGame {
       timerMs: this.timerMs(now),
       cardId: t.cardId,
       turnNo: this.turnNo,
-      dice: t.dice,
+      coin: t.coin,
       guesserName: (this.teamById(t.teamId) || { members: [] }).members
         .filter((m) => m !== t.actorId).map((m) => (this.players.get(m) || { name: '?' }).name).join(' & '),
     };
@@ -435,10 +451,18 @@ class TeamGame {
       winners: this.winners(),
       collecting: this.collectingView(),
       myWords: [],
+      myWordList: [],
       cards: [],
     };
     if (this.phase === 'collecting' && team) {
       view.myWords = this.deck.filter((c) => c.teamId === team.id).map(({ id, word }) => ({ id, word }));
+    }
+    if (team) {
+      // "My words" list: every word the team wrote, with the ones already played marked.
+      view.myWordList = [
+        ...this.deck.filter((c) => c.teamId === team.id).map((c) => ({ word: c.word, used: false })),
+        ...this.usedCards.filter((c) => c.teamId === team.id).map((c) => ({ word: c.word, used: true })),
+      ];
     }
     if (!t || !TURN_PHASES.includes(this.phase) || !team) return view;
 

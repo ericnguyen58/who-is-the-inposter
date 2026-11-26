@@ -17,7 +17,7 @@ socket.on('connect', () => {
 let lastOffered = [];
 let dealtKey = '';
 let flippedCard = null;
-let diceShownTurn = null;
+let coinShownTurn = null;
 let soundTurn = null; // Act & Draw turn whose result sound already played
 
 socket.on('board', (b) => {
@@ -114,7 +114,7 @@ function render() {
   });
   startCountdown(teams ? b.team.turn && b.team.turn.timerMs : b.voteTimerMs, teams ? 10 : 3);
   runFlips();
-  runDice();
+  runCoins();
   // Lobby music loops on the lobby screen until a game starts (paused during the music test).
   const inLobby = (teams ? b.team.phase : b.phase) === 'lobby';
   LobbyMusic.set(inLobby && !musicTestEnd);
@@ -210,7 +210,7 @@ function teamStage(t, playerCount) {
         <p class="big">Other teams are writing a word&hellip; ${t.turn.wordsIn} / ${t.turn.wordsNeeded}</p>
         <button class="secondary" data-act="team:pick" ${t.turn.wordsIn ? '' : 'disabled'}>Pick from the words in now</button>
         ${settingsHtml(t.settings)}`;
-    case 'rolling': {
+    case 'flipping': {
       let cards = '';
       if (t.turn.cardId) {
         // The picked card flips to show "Picked!" (never the word); the others fade.
@@ -224,22 +224,22 @@ function teamStage(t, playerCount) {
       }
       return `${turnLine}${cards}
         <p class="big">Word picked from <b>${esc(t.turn.writerTeam)}</b>.</p>
-        <p>${esc(t.turn.actorName)} is rolling the dice: act or draw?</p>
-        ${diceHtml(null)}
-        <button class="secondary" data-act="team:hostRoll">Roll for ${esc(t.turn.actorName)}</button>`;
+        <p>${esc(t.turn.actorName)} is flipping the coin: act or draw?</p>
+        ${coinHtml(null)}
+        <button class="secondary" data-act="team:hostFlip">Flip for ${esc(t.turn.actorName)}</button>`;
     }
     case 'ready': {
-      // The roll tumbles once, then stays on its face.
-      const animate = t.turn.turnNo !== diceShownTurn;
-      diceShownTurn = t.turn.turnNo;
+      // The coin spins once, then stays on its side.
+      const animate = t.turn.turnNo !== coinShownTurn;
+      coinShownTurn = t.turn.turnNo;
       return `${turnLine}
-        ${diceHtml(t.turn.dice, animate, t.turn.actorName)}
+        ${coinHtml(t.turn.coin, animate, t.turn.actorName)}
         <p>${esc(t.turn.guesserName)} starts the timer on their phone.</p>
         <button class="secondary" data-act="team:hostGo">Start timer</button>`;
     }
     case 'acting':
       return `${turnLine}
-        ${diceStyleLine(t.turn.dice, t.turn.actorName)}
+        ${coinStyleLine(t.turn.coin, t.turn.actorName)}
         <p class="timer huge"></p>
         <p class="big">Guess out loud! <b>${esc(t.turn.writerTeam)}</b> confirms on their phone.</p>`;
     case 'judging':
