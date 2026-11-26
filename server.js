@@ -122,6 +122,9 @@ io.on('connection', (socket) => {
 
   const playerActions = {
     'team:word': (word) => teamGame.submitWord(socket.data.playerId, word),
+    'team:addWord': (word) => teamGame.addWord(socket.data.playerId, word),
+    'team:removeWord': (cardId) => teamGame.removeWord(socket.data.playerId, Number(cardId)),
+    'team:pickCard': (cardId) => teamGame.pickCard(socket.data.playerId, Number(cardId)),
     'team:go': () => armTimer(teamGame.startTimer(socket.data.playerId)),
     'team:judge': (correct) => teamGame.judge(socket.data.playerId, !!correct),
   };
@@ -162,6 +165,8 @@ io.on('connection', (socket) => {
     'team:start': teamsOnly(() => teamGame.start()),
     'team:settings': teamsOnly((s) => teamGame.setSettings(s || {})),
     'team:pick': teamsOnly(() => teamGame.pickNow()),
+    'team:begin': teamsOnly(() => teamGame.begin()),
+    'team:pickRandom': teamsOnly(() => teamGame.pickRandom()),
     'team:hostGo': teamsOnly(() => armTimer(teamGame.startTimer(null))),
     'team:next': teamsOnly(() => teamGame.next()),
     'team:lobby': teamsOnly(() => teamGame.toLobby()),

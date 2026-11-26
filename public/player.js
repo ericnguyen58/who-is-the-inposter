@@ -97,6 +97,19 @@ function render() {
       send('team:word', value);
     };
   }
+  const deckForm = app.querySelector('#deckForm');
+  if (deckForm) {
+    deckForm.onsubmit = (e) => {
+      e.preventDefault();
+      const value = input.value;
+      input.value = '';
+      input.focus();
+      send('team:addWord', value);
+    };
+  }
+  app.querySelectorAll('[data-unword]').forEach((b) => { b.onclick = () => send('team:removeWord', b.dataset.unword); });
+  app.querySelectorAll('.card.pickable').forEach((c) => { c.onclick = () => send('team:pickCard', c.dataset.card); });
+  runFlips();
   const go = app.querySelector('[data-go]');
   if (go) go.onclick = () => send('team:go');
   app.querySelectorAll('[data-judge]').forEach((b) => {
@@ -111,6 +124,10 @@ function send(event, arg = null) {
 
 // ---------- Act & Draw ----------
 
+// Deck animation state (so cards deal / flip only once, not on every update).
+let phoneDealtKey = '';
+let phoneFlipped = null;
+
 function teamBody(t) {
   const scores = `<ol class="scores">${t.teams.map((x) => `<li><span>${esc(x.name)}</span><b>${x.score}</b></li>`).join('')}</ol>`;
   const myTeam = `<p class="muted">${t.myTeam ? `Your team: ${esc(t.myTeam.name)} &middot; ` : ''}Round ${t.round} / ${t.settings.rounds}</p>`;
@@ -121,6 +138,20 @@ function teamBody(t) {
   if (t.phase === 'turnResult') {
     return `${teamResultHtml(t.result)}${scores}<p class="muted">Waiting for the next turn&hellip;</p>`;
   }
+  if (t.phase === 'collecting') {
+    const need = t.settings.rounds;
+    const done = t.myWords.length >= need;
+    const others = t.collecting.map((c) => `<li><span>${esc(c.name)}</span><b>${c.count} / ${c.need}</b></li>`).join('');
+    return `${myTeam}
+      <p class="big">${done ? 'Your team is done!' : `Write ${need} word${need === 1 ? '' : 's'} for the other teams`}</p>
+      ${done ? '<p>Waiting for the other teams&hellip;</p>' : `<form id="deckForm">
+        <input id="word" maxlength="30" autocomplete="off" placeholder="A word or short phrase" required>
+        <button type="submit">Add word</button></form>`}
+      <p class="muted">${t.myWords.length} / ${need} &middot; only your team sees these</p>
+      <ul class="my-words">${t.myWords.map((w) => `<li><span>${esc(w.word)}</span>
+        <button class="kick" data-unword="${w.id}" title="Remove">&times;</button></li>`).join('')}</ul>
+      <h2>All teams</h2><ol class="scores">${others}</ol>`;
+  }
   const turn = t.turn;
   const timer = t.phase === 'acting' ? '<p class="timer"></p>' : '';
   const progress = `Other teams are writing your word&hellip; ${turn.wordsIn} / ${turn.wordsNeeded}`;
@@ -128,10 +159,25 @@ function teamBody(t) {
 
   switch (t.role) {
     case 'actor':
+      if (t.phase === 'picking') {
+        const key = t.cards.join(',');
+        const deal = key !== phoneDealtKey;
+        phoneDealtKey = key;
+        return `${myTeam}<p class="big">You act / draw! Pick a card</p>
+          <div class="cards">${t.cards.map((id, i) => cardHtml(id, '', { cls: `pickable${deal ? ' deal' : ''}`, delay: i * 50 })).join('')}</div>
+          <p class="muted">Words from the other teams. Only you will see it.</p>`;
+      }
       if (t.phase === 'writing') return `${myTeam}<p class="big">You act / draw this turn!</p><p>${progress}</p>`;
+      if (t.phase === 'ready' && turn.cardId) {
+        const anim = turn.cardId !== phoneFlipped;
+        phoneFlipped = turn.cardId;
+        return `${myTeam}<div class="cards single">${cardHtml(turn.cardId, `<span class="card-word">${esc(t.word)}</span>`, { cls: `big ${anim ? 'flip' : 'flipped'}` })}</div>
+          ${rules}<button data-go>Start timer</button>`;
+      }
       if (t.phase === 'ready') return `${myTeam}${wordCard(t.word)}${rules}<button data-go>Start timer</button>`;
       return `${timer}${wordCard(t.word)}${rules}`;
     case 'guesser':
+      if (t.phase === 'picking') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} is picking a card&hellip;</p>`;
       if (t.phase === 'writing') return `${myTeam}<p class="big">You guess this turn!</p><p>${esc(turn.actorName)} will act or draw. ${progress}</p>`;
       if (t.phase === 'ready') return `${myTeam}<p class="big">Get ready to guess!</p><p>${esc(turn.actorName)} is about to start.</p>`;
       return `${timer}<p class="big">Guess out loud!</p>`;

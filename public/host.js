@@ -13,7 +13,13 @@ socket.on('connect', () => {
   });
 });
 
+// Act & Draw deck animation state (so cards deal / flip only once, not on every update).
+let lastOffered = [];
+let dealtKey = '';
+let flippedCard = null;
+
 socket.on('board', (b) => {
+  if (b.mode === 'teams' && b.team.phase === 'picking') lastOffered = b.team.deck.offered;
   const cm = b.customMusic || {};
   VoteMusic.setCustom(cm.vote ? `/custom-music/vote?v=${cm.vote.version}` : null);
   LobbyMusic.setSource(cm.lobby ? `/custom-music/lobby?v=${cm.lobby.version}` : null);
@@ -96,6 +102,7 @@ function render() {
     el.onclick = () => { if (confirm(`Remove ${el.dataset.name}?`)) act('host:kick', el.dataset.kick); };
   });
   startCountdown(teams ? b.team.turn && b.team.turn.timerMs : b.voteTimerMs, teams ? 10 : 3);
+  runFlips();
   // Lobby music loops on the lobby screen until a game starts (paused during the music test).
   const inLobby = (teams ? b.team.phase : b.phase) === 'lobby';
   LobbyMusic.set(inLobby && !musicTestEnd);
@@ -166,16 +173,48 @@ function teamStage(t, playerCount) {
         <button data-act="team:start" ${enough ? '' : 'disabled'}>Make random teams &amp; start</button>
         ${enough ? '' : `<p class="muted">Need at least ${t.minPlayers} players.</p>`}`;
     }
+    case 'collecting': {
+      const n = t.settings.rounds;
+      return `<h1>Write your words</h1>
+        <p class="big">Each team writes ${n} word${n === 1 ? '' : 's'} on their phones.</p>
+        <ol class="scores progress">${t.collecting.map((c) => `<li><span>${esc(c.name)}</span>
+          <b>${c.count} / ${c.need}${c.count >= c.need ? ' &#10003;' : ''}</b></li>`).join('')}</ol>
+        <p class="muted">The game starts by itself when every team is done.</p>
+        <button class="secondary" data-act="team:begin">Start now with the words in</button>
+        ${settingsHtml(t.settings)}`;
+    }
+    case 'picking': {
+      const key = t.deck.offered.join(',');
+      const deal = key !== dealtKey;
+      dealtKey = key;
+      return `${turnLine}
+        <p class="big">${esc(t.turn.actorName)} is picking a card&hellip;</p>
+        <div class="cards">${t.deck.offered.map((id, i) => cardHtml(id, '', { cls: deal ? 'deal' : '', delay: i * 60 })).join('')}</div>
+        <p class="muted">${t.deck.left} card${t.deck.left === 1 ? '' : 's'} left in the deck &middot; showing the ${t.deck.offered.length} this team can pick</p>
+        <button class="secondary" data-act="team:pickRandom">Pick a random card</button>`;
+    }
     case 'writing':
       return `${turnLine}
         <p class="big">Other teams are writing a word&hellip; ${t.turn.wordsIn} / ${t.turn.wordsNeeded}</p>
         <button class="secondary" data-act="team:pick" ${t.turn.wordsIn ? '' : 'disabled'}>Pick from the words in now</button>
         ${settingsHtml(t.settings)}`;
-    case 'ready':
-      return `${turnLine}
+    case 'ready': {
+      let cards = '';
+      if (t.turn.cardId) {
+        // The picked card flips to show "Picked!" (never the word); the others fade.
+        const anim = t.turn.cardId !== flippedCard;
+        flippedCard = t.turn.cardId;
+        const ids = lastOffered.includes(t.turn.cardId) ? lastOffered : [t.turn.cardId];
+        const front = `<b>Picked!</b><small>from ${esc(t.turn.writerTeam)}</small>`;
+        cards = `<div class="cards">${ids.map((id) => (id === t.turn.cardId
+          ? cardHtml(id, front, { cls: `chosen ${anim ? 'flip' : 'flipped'}` })
+          : cardHtml(id, '', { cls: 'fade' }))).join('')}</div>`;
+      }
+      return `${turnLine}${cards}
         <p class="big">Word picked from <b>${esc(t.turn.writerTeam)}</b>.</p>
         <p>${esc(t.turn.actorName)} starts the timer on their phone.</p>
         <button class="secondary" data-act="team:hostGo">Start timer</button>`;
+    }
     case 'acting':
       return `${turnLine}
         <p class="timer huge"></p>

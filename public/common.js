@@ -91,15 +91,16 @@ function helpHtml(mode, forHost) {
     const steps = forHost
       ? [
         'Set <b>Timer</b> and <b>Rounds</b>, then tap <b>Make random teams &amp; start</b> (4+ players).',
-        'Other teams type a word on their phones. To stop waiting, tap <b>Pick from the words in now</b>.',
+        'Every team writes one word per round on their phones. Turns start when all teams are done (or tap <b>Start now with the words in</b>).',
+        'The actor picks a face-down card on their phone. Here it only shows <b>Picked!</b> and the team that wrote it.',
         'The actor taps <b>Start timer</b> on their phone (or tap it here).',
         'The actor acts or draws on paper. The teammate guesses out loud.',
         'The team that wrote the word taps <b>Correct</b> or <b>Fail</b>. Time running out = fail.',
         'Tap <b>Next turn</b>. A round = every team plays once. Most points after the last round wins.',
       ]
       : [
-        'When another team plays, your team types one word for them and taps <b>Submit</b>.',
-        'When your team plays, the actor sees the word and taps <b>Start timer</b>.',
+        'Before the first turn, your team writes one word per round. Only your team sees them.',
+        'When your team plays, the actor picks a face-down card from the other teams\u2019 words, sees the word and taps <b>Start timer</b>.',
         'The actor acts or draws it on paper. No saying it, no pointing at it. The teammate guesses out loud.',
         'If your team’s word is picked, you judge: tap <b>Correct</b> or <b>Fail</b>.',
       ];
@@ -122,4 +123,25 @@ function helpHtml(mode, forHost) {
     ];
   return `<div class="help"><h2>Imposter</h2>${list(steps)}
     <p><b>Points:</b> imposter caught = +1 to everyone else. Wrong player voted out, or last round survived = imposter wins points equal to the round number.</p></div>`;
+}
+
+// ---------- Act & Draw word cards ----------
+
+// A playing card with a back (face down) and a front. Classes on the card:
+//   flipped = shows the front, flip = flips over once right after render (see runFlips),
+//   deal = slides in (staggered by `delay` ms), fade = a card that was not picked.
+function cardHtml(id, front, { cls = '', delay = 0 } = {}) {
+  return `<div class="card ${cls}" data-card="${id}" style="--d:${delay}ms">
+    <div class="card-inner">
+      <div class="card-back"><span>\u{1F342}</span></div>
+      <div class="card-front">${front}</div>
+    </div>
+  </div>`;
+}
+
+// Starts the flip animation on cards rendered with class "flip".
+function runFlips() {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('.card.flip').forEach((c) => c.classList.add('flipped'));
+  }));
 }
