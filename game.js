@@ -1,6 +1,7 @@
 'use strict';
 
 const WORD_PAIRS = require('./words');
+const TEST_PAIRS = require('./words-test');
 
 const MAX_ROUNDS = 5; // default rounds per game; the host can change it
 const MIN_PLAYERS = 3;
@@ -9,13 +10,15 @@ const SKIP = 'skip';
 
 // Phases: lobby -> clues <-> voting -> result -> (next game) clues ... -> done
 class Game {
-  constructor({ rng = Math.random, pairs = WORD_PAIRS } = {}) {
+  constructor({ rng = Math.random, pairs = WORD_PAIRS, testPairs = TEST_PAIRS } = {}) {
     this.rng = rng;
     this.pairs = pairs;
+    this.testPairs = testPairs;
+    this.useTestWords = false; // true while test bots are on
     this.players = new Map(); // id -> { id, name, score, wasImposter }
     this.phase = 'lobby';
     this.queue = []; // players still waiting for their imposter turn in this rotation
-    this.usedPairs = new Set();
+    this.usedPairs = new Set(); // "word|word" keys of pairs already played
     this.lastImposterId = null;
     this.gameNo = 0;
     this.current = null; // the game in progress
@@ -79,6 +82,19 @@ class Game {
     this.newRotation();
     this.gameNo = 0;
     this.startGame();
+  }
+
+  // Stops any game, sets scores to 0 and goes back to the lobby. Players and settings stay.
+  reset() {
+    this.phase = 'lobby';
+    this.queue = [];
+    this.current = null;
+    this.roundNote = null;
+    this.gameNo = 0;
+    for (const p of this.players.values()) {
+      p.score = 0;
+      p.wasImposter = false;
+    }
   }
 
   next() {
@@ -179,11 +195,16 @@ class Game {
   }
 
   pickPair() {
-    if (this.usedPairs.size >= this.pairs.length) this.usedPairs.clear();
-    const free = this.pairs.map((_, i) => i).filter((i) => !this.usedPairs.has(i));
-    const i = free[Math.floor(this.rng() * free.length)];
-    this.usedPairs.add(i);
-    return this.pairs[i];
+    const list = this.useTestWords ? this.testPairs : this.pairs;
+    const key = (p) => p.join('|');
+    let free = list.filter((p) => !this.usedPairs.has(key(p)));
+    if (!free.length) {
+      for (const p of list) this.usedPairs.delete(key(p));
+      free = list;
+    }
+    const pair = free[Math.floor(this.rng() * free.length)];
+    this.usedPairs.add(key(pair));
+    return pair;
   }
 
   endGame(winner, votedOutId, tally) {

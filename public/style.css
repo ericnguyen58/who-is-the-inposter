@@ -268,3 +268,7 @@ ul, ol { padding: 0; margin: 8px 0; list-style: none; }
 .voted-out { margin: 12px 0; padding: 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--gold); }
 .voted-out span { display: block; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85rem; }
 .voted-out b { display: block; margin-top: 4px; font-family: Georgia, "Times New Roman", serif; font-size: 2rem; color: var(--gold); }
+
+/* ---------- Testing panel ---------- */
+
+.test-panel { border-style: dashed; }

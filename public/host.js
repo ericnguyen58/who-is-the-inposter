@@ -14,13 +14,16 @@ socket.on('connect', () => {
 });
 
 socket.on('board', (b) => {
+  const cm = b.customMusic || {};
+  VoteMusic.setCustom(cm.vote ? `/custom-music/vote?v=${cm.vote.version}` : null);
+  LobbyMusic.setSource(cm.lobby ? `/custom-music/lobby?v=${cm.lobby.version}` : null);
   // Music plays while an Imposter vote is open.
   const voting = b.mode === 'imposter' && b.phase === 'voting';
   const wasVoting = !!board && board.mode === 'imposter' && board.phase === 'voting';
   if (voting && !wasVoting) VoteMusic.start();
   if (!voting && wasVoting) {
     VoteMusic.stop();
-    VoteMusic.sting();
+    if (b.phase !== 'lobby') VoteMusic.sting(); // no chord after Reset
   }
   board = b;
   render();
@@ -36,7 +39,10 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Browsers only allow sound after a click on the page.
-document.addEventListener('click', () => VoteMusic.unlock(), true);
+document.addEventListener('click', () => {
+  VoteMusic.unlock();
+  LobbyMusic.retry();
+}, true);
 
 function act(event, arg = null) {
   socket.emit(event, arg, (res) => { if (!res.ok) alert(res.error); });
@@ -52,6 +58,8 @@ function render() {
       <p class="code">${esc(b.code)}</p>
       <button class="secondary" data-help>${showHelp ? 'Hide help' : 'How to play'}</button>
       <button class="secondary" data-sound>${VoteMusic.isMuted() ? 'Sound: off' : 'Sound: on'}</button>
+      <button class="secondary" data-reset>Reset</button>
+      ${b.testing ? testPanelHtml() : ''}
       ${showHelp ? helpHtml(b.mode, true) : ''}
     </section>
     <section class="stage">${b.canSwitch ? modeSwitch(b) : ''}${teams ? teamStage(b.team, b.players.length) : stage(b)}</section>
@@ -68,6 +76,14 @@ function render() {
     if (!VoteMusic.isMuted() && b.mode === 'imposter' && b.phase === 'voting') VoteMusic.start();
     render();
   };
+  app.querySelector('[data-reset]').onclick = () => {
+    if (confirm('Reset? This stops the game, sets all scores to 0 and goes back to the lobby. Players stay joined.')) {
+      stopMusicTest();
+      act('host:reset');
+    }
+  };
+  const musicBtn = app.querySelector('[data-music-test]');
+  if (musicBtn) musicBtn.onclick = () => (musicTestEnd ? stopMusicTest() : startMusicTest());
   app.querySelectorAll('[data-mode]').forEach((el) => { el.onclick = () => act('host:mode', el.dataset.mode); });
   app.querySelectorAll('[data-set]').forEach((el) => {
     el.onclick = () => {
@@ -80,6 +96,54 @@ function render() {
     el.onclick = () => { if (confirm(`Remove ${el.dataset.name}?`)) act('host:kick', el.dataset.kick); };
   });
   startCountdown(teams ? b.team.turn && b.team.turn.timerMs : b.voteTimerMs, teams ? 10 : 3);
+  // Lobby music loops on the lobby screen until a game starts (paused during the music test).
+  const inLobby = (teams ? b.team.phase : b.phase) === 'lobby';
+  LobbyMusic.set(inLobby && !musicTestEnd);
+}
+
+// ---------- Testing panel (shown while test bots are on) ----------
+
+let musicTestEnd = null;
+let musicTestLoop = null;
+
+function testPanelHtml() {
+  const cm = (board && board.customMusic) || {};
+  const source = `Vote music: ${cm.vote ? `your file (${esc(cm.vote.name)})` : 'built-in'}<br>
+    Lobby music: ${cm.lobby ? `your file (${esc(cm.lobby.name)})` : 'none'}`;
+  const label = VoteMusic.isMuted()
+    ? 'Sound is off'
+    : musicTestEnd ? `Stop music (${Math.max(0, Math.ceil((musicTestEnd - Date.now()) / 1000))}s)` : 'Play vote music (10s)';
+  return `<div class="help test-panel">
+    <h2>Testing</h2>
+    <button data-music-test ${VoteMusic.isMuted() ? 'disabled' : ''}>${label}</button>
+    <p class="muted">${source}</p>
+    <p class="muted">Test words are on (easy pairs like Red / Blue).<br>Cmd/Ctrl + Shift + B removes the bots.</p>
+  </div>`;
+}
+
+// Plays the vote music for 10 seconds without starting a vote.
+function startMusicTest() {
+  VoteMusic.start();
+  musicTestEnd = Date.now() + 10000;
+  musicTestLoop = setInterval(() => {
+    if (Date.now() >= musicTestEnd) {
+      stopMusicTest();
+      VoteMusic.sting();
+      return;
+    }
+    const btn = document.querySelector('[data-music-test]');
+    if (btn) btn.textContent = `Stop music (${Math.ceil((musicTestEnd - Date.now()) / 1000)}s)`;
+  }, 250);
+  render();
+}
+
+function stopMusicTest() {
+  if (!musicTestEnd) return;
+  clearInterval(musicTestLoop);
+  musicTestEnd = null;
+  // Keep the music if a real vote is running.
+  if (!(board && board.mode === 'imposter' && board.phase === 'voting')) VoteMusic.stop();
+  if (board) render();
 }
 
 function modeSwitch(b) {

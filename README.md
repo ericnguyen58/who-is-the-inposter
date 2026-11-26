@@ -88,10 +88,22 @@ Pick **Act & Draw** on the scoreboard before starting (switching is possible whe
 
 - **Player's phone locks or the page closes:** they reopen the same link. Their name, word and score come back.
 - **Remove a player:** tap **×** next to their name on the scoreboard.
+- **Reset:** tap **Reset** on the scoreboard. It stops the game, sets all scores to 0 and goes back to the lobby. Players stay joined, and the mode and settings stay the same.
 - **New player joins mid-game:** in Imposter mode they play from the next game. In Act & Draw they're added to the smallest team.
 - **Switch modes:** only possible when no game is running (lobby, or after a game ends).
 - **Help:** tap **How to play** on the scoreboard, or **?** on a phone, for the rules of the current mode.
 - **Sound:** tap **Sound: on / off** on the scoreboard. Click anywhere on the scoreboard once after opening it so the browser allows sound.
+
+### Use your own music (optional)
+
+1. Put audio files in the `custom-music` folder (inside the game folder on the laptop):
+   - `lobby.mp3`: loops on the lobby screen (both modes) until a game starts, and again after Reset or Back to lobby.
+   - `vote.mp3`: plays from the start during each 10-second Imposter vote and is cut when the vote closes.
+   - `.m4a`, `.ogg` and `.wav` also work.
+2. Start the game as usual. The terminal shows which files it found. If the game is already running, files are picked up the next time the scoreboard updates (for example when a player joins).
+3. Click the scoreboard page once after opening it: browsers block sound until then.
+
+Without a `vote` file the built-in music plays; without a `lobby` file the lobby is silent. The `custom-music` folder is ignored by git, so your files stay on your laptop and are never pushed to GitHub. Only use music you have the right to play.
 
 ### Stop
 

@@ -209,3 +209,29 @@ test('host sets number of games; rotation continues fairly past one cycle', () =
   h.startVote(); voteAll(h, h.current.imposterId); h.next();
   assert.strictEqual(h.phase, 'done', 'fewer games than players ends early');
 });
+
+test('reset stops the game, zeroes scores, keeps players and settings', () => {
+  const g = setup(4);
+  g.setSettings({ maxRounds: 3 });
+  g.start();
+  g.startVote();
+  voteAll(g, g.current.imposterId);
+  assert.ok([...g.players.values()].some((p) => p.score > 0));
+  g.next();
+  g.reset();
+  assert.strictEqual(g.phase, 'lobby');
+  assert.strictEqual(g.players.size, 4);
+  assert.ok([...g.players.values()].every((p) => p.score === 0 && !p.wasImposter));
+  assert.strictEqual(g.settings.maxRounds, 3);
+  g.start(); // can play again
+  assert.strictEqual(g.phase, 'clues');
+});
+
+test('test words are used while test bots are on', () => {
+  const testPairs = require('../words-test');
+  const g = setup(4);
+  g.useTestWords = true;
+  g.start();
+  const words = [g.current.crewWord, g.current.imposterWord].sort();
+  assert.ok(testPairs.some((p) => [...p].sort().join() === words.join()));
+});

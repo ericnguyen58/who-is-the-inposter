@@ -64,6 +64,15 @@ class TeamGame {
     this.startTurn();
   }
 
+  // Stops any game, clears teams and scores, and goes back to the lobby. Settings stay.
+  reset() {
+    this.phase = 'lobby';
+    this.teams = [];
+    this.turn = null;
+    this.round = 1;
+    this.playedThisRound.clear();
+  }
+
   toLobby() {
     if (this.phase !== 'done') throw new Error('The game is not finished');
     this.phase = 'lobby';
